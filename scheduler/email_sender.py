@@ -25,6 +25,84 @@ def expand_env(value: str) -> str:
     return re.sub(r"\$\{([^}]+)\}", lambda m: os.environ.get(m.group(1), m.group(0)), value)
 
 
+# ---------- CSS 变量内联 ----------
+
+def _parse_root_variables(html: str) -> dict[str, str]:
+    """从 HTML 的 :root{} 块中提取所有 --name: value 变量定义。"""
+    root_match = re.search(r':root\s*\{([^}]+)\}', html, re.DOTALL)
+    if not root_match:
+        return {}
+
+    vars_dict: dict[str, str] = {}
+    raw_decls = [d.strip() for d in root_match.group(1).split(';') if d.strip()]
+    for decl in raw_decls:
+        if ':' in decl:
+            name, value = decl.split(':', 1)
+            name = name.strip()
+            if name.startswith('--'):
+                vars_dict[name] = value.strip()
+    return vars_dict
+
+
+def _resolve_nested_vars(vars_dict: dict[str, str], max_depth: int = 5) -> dict[str, str]:
+    """递归解析变量值中嵌套的 var() 引用（如 --x: var(--y)）。"""
+    for _ in range(max_depth):
+        changed = False
+        for name, value in list(vars_dict.items()):
+            new_value = re.sub(
+                r'var\((--[\w-]+)\)',
+                lambda m: vars_dict.get(m.group(1), m.group(0)),
+                value,
+            )
+            if new_value != value:
+                vars_dict[name] = new_value
+                changed = True
+        if not changed:
+            break
+    return vars_dict
+
+
+def inline_css_variables(html: str) -> str:
+    """将 HTML 中 :root{} 定义的 CSS 变量展开为具体值。
+
+    邮件客户端 (163/QQ/Gmail) 会剥离或破坏 <style> 中的
+    CSS 自定义属性，导致大量 var(--xxx) 引用失效、样式丢失。
+    此函数在发送前将变量内联为具体值，消除对 CSS 变量的依赖。
+    """
+    vars_dict = _parse_root_variables(html)
+    if not vars_dict:
+        return html
+
+    vars_dict = _resolve_nested_vars(vars_dict)
+
+    def _resolve(match: re.Match) -> str:
+        inner = match.group(1)
+        # 处理 var(--name, fallback)：在括号深度为0处找第一个逗号
+        depth = 0
+        comma_at = -1
+        for i, ch in enumerate(inner):
+            if ch == '(':
+                depth += 1
+            elif ch == ')':
+                depth -= 1
+            elif ch == ',' and depth == 0:
+                comma_at = i
+                break
+
+        if comma_at > 0:
+            var_name = inner[:comma_at].strip()
+            fallback = inner[comma_at + 1:].strip()
+        else:
+            var_name = inner.strip()
+            fallback = None
+
+        if var_name in vars_dict:
+            return vars_dict[var_name]
+        return fallback if fallback is not None else match.group(0)
+
+    return re.sub(r'var\(([^()]*(?:\([^()]*\)[^()]*)*)\)', _resolve, html)
+
+
 def send_email(
     email_cfg: dict,
     subject: str,
@@ -40,8 +118,8 @@ def send_email(
         body:      邮件正文（纯文本或 HTML，由 body_type 决定）。
         log:       日志回调；默认使用 print。
         body_type: 正文类型，"plain" 纯文本（默认）或 "html"。
-                   注意：HTML 正文在部分邮件客户端（163/QQ/Gmail webmail）
-                   会被剥离 flex/grid/CSS 变量/渐变等样式，复杂看板建议改用附件。
+                   HTML 正文在发送前会自动内联 CSS 变量，减少
+                   邮件客户端剥离样式的影响。
     """
     if log is None:
         log = print
@@ -49,6 +127,10 @@ def send_email(
     if not email_cfg.get("enabled", False):
         log("邮件发送已禁用(email.enabled=false), 跳过")
         return
+
+    if body_type == "html":
+        body = inline_css_variables(body)
+        log(f"CSS 变量已内联 (var() 剩余: {body.count('var(--')} 处)")
 
     host = email_cfg["smtp_host"]
     port = int(email_cfg["smtp_port"])
