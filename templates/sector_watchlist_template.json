@@ -1,0 +1,12 @@
+{
+  "_schema_notes": "关注板块清单,独立于持仓(positions)和自选股(watchlist)管理,代表用户主动跟踪的行业/板块视角(区别于个股视角)。related_holdings_or_watchlist用于关联该板块下已有的具体持仓/自选股代码,方便周复盘时交叉引用,不重复记录。",
+
+  "sectors": [
+    {
+      "sector_name": "(待填写,如:半导体国产替代)",
+      "reason_for_interest": "(待填写——为什么关注这个板块,如长期产业趋势/估值修复/政策驱动等)",
+      "related_holdings_or_watchlist": [],
+      "notes": "(待填写)"
+    }
+  ]
+}

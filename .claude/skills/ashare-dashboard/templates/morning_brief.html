@@ -1,0 +1,596 @@
+<!--
+@dashboard-template
+name: 早间消息推送看板
+match: 早间消息,早间推送,隔夜美股,开盘前简报,隔夜消息,欧美市场,morning brief,盘前推送
+target: A股开盘前早间消息推送报告(ashare-morning-brief 产出)的移动端看板
+data: 隔夜美股,VIX恐慌指数,中国概念股ADR,美债美元商品,欧洲市场,隔夜消息汇总,技术参考位,短期机会,隔夜观察核对,今日日程,今日观察清单,宏观更新队列
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>早间消息推送看板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700;900&family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  模板说明(给生成时的 skill 看):
+  - 本文件是"早间消息推送看板"模板。下方所有数字/文字均为【示意占位】，取自 2026-06-28 早间推送报告，
+    生成时用真实数据源内容逐处替换；架构、分区顺序、样式、纪律措辞位保留不动。
+  - 占位规则：数字替换数字、文案替换文案；涨跌方向用 .up/.down + ▲/▼ 双编码；缺失字段按各模块
+    注释的"缺失时"规则渲染("—"灰显 / "数据缺失"标注 / 整块降级)，绝不编造或外推。
+  - 本模板聚焦"隔夜外盘 + 消息面"：不含 A 股当日行情数据（涨跌家数/资金面/板块涨跌/亚太收盘），
+    不含四维深度技术卡片（盘前不跑引擎），技术参考位仅承接昨晚晚间复盘已算好的结果。
+  - 纪律保留位：参考位"非下单指令"、对称情景双向、短期机会与中长期持仓分栏、风险提示与免责声明，
+    这些结构在模板里已预留，生成时填入数据源原文，不得为版面精简而删改口径。
+  - VIX 恐慌指数是本看板的核心一级元素——首屏 Hero 专设 VIX KPI，并在隔夜美股详情区设专用卡片。
+-->
+<style>
+  :root{
+    --bg:#0A0D12; --bg-deep:#070909;
+    --panel:#10141C; --panel-2:#151B26; --panel-3:#1A2130;
+    --border:#252C3B; --border-soft:#1A202C;
+    --text:#E8EBF1; --dim:#8C96AC; --faint:#576078;
+    --up:#FF4D5E; --up-soft:rgba(255,77,94,.14); --up-border:rgba(255,77,94,.35);
+    --down:#16C784; --down-soft:rgba(22,199,132,.14); --down-border:rgba(22,199,132,.35);
+    --warn:#F0B429; --warn-soft:rgba(240,180,41,.14); --warn-border:rgba(240,180,41,.4);
+    --info:#4C8DFF; --info-soft:rgba(76,141,255,.14);
+    --strength:#9B83EF; --strength-soft:rgba(155,131,239,.16);
+    --flow:#2FD4C9; --flat:#6B7589;
+    --r:12px; --gap:12px;
+    --fd:'Noto Serif SC',serif;
+    --fb:'Noto Sans SC','PingFang SC','Microsoft YaHei',-apple-system,sans-serif;
+    --fm:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg); color:var(--text); font-family:var(--fb);
+    -webkit-font-smoothing:antialiased; line-height:1.65; font-size:15px;
+    max-width:520px; margin:0 auto;
+    padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 28px);
+  }
+  .num{font-family:var(--fm); font-feature-settings:"tnum";}
+  .up{color:var(--up);} .down{color:var(--down);} .flat-c{color:var(--flat);}
+  .dim{color:var(--dim);} .faint{color:var(--faint);}
+  b{font-weight:600;}
+
+  /* ===== 顶部窄标题 ===== */
+  .top{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+  .top .t{font-family:var(--fd); font-weight:700; font-size:17px;}
+  .top .d{font-family:var(--fm); font-size:12px; color:var(--dim);}
+  .src-flag{display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--warn);
+    border:1px solid var(--warn-border); background:var(--warn-soft); padding:2px 8px; border-radius:99px;
+    text-decoration:none; margin-left:auto;}
+  .src-flag:active{opacity:.7;}
+
+  /* ===== 通用卡片 / 分区标题 ===== */
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:var(--r); padding:14px; margin-bottom:var(--gap);}
+  .sec{margin-top:22px;}
+  .sec-eye{font-family:var(--fm); font-size:11px; letter-spacing:.14em; color:var(--faint); text-transform:uppercase; margin-bottom:3px;}
+  .sec-title{font-family:var(--fd); font-size:18px; font-weight:700; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;}
+  .sec-title .sub{font-family:var(--fb); font-weight:400; font-size:12.5px; color:var(--dim);}
+  .takeaway{font-size:12.5px; color:var(--dim); margin-top:6px; line-height:1.7;}
+  .takeaway b{color:var(--text);}
+
+  /* ===== 标签徽章 ===== */
+  .tag{font-size:12px; padding:3px 8px; border-radius:99px; border:1px solid var(--border-soft);
+    color:var(--dim); white-space:nowrap; font-weight:500; display:inline-flex; align-items:center; gap:4px;}
+  .tag.up{color:var(--up); background:var(--up-soft); border-color:var(--up-border);}
+  .tag.down{color:var(--down); background:var(--down-soft); border-color:var(--down-border);}
+  .tag.warn{color:var(--warn); background:var(--warn-soft); border-color:var(--warn-border);}
+  .tag.info{color:var(--info); background:var(--info-soft); border-color:rgba(76,141,255,.4);}
+  .tag.strength{color:var(--strength); background:var(--strength-soft); border-color:rgba(155,131,239,.4);}
+  .tag.flat{color:var(--flat);}
+  .chips{display:flex; gap:6px; flex-wrap:wrap;}
+
+  /* ===== 状态横幅 ===== */
+  .banner{font-size:13px; font-weight:600; padding:8px 12px; border-radius:8px; margin:8px 0;
+    border-left:3px solid var(--flat); background:var(--panel-2);}
+  .banner.warn{color:var(--warn); background:var(--warn-soft); border-left-color:var(--warn);}
+  .banner.info{color:var(--info); background:var(--info-soft); border-left-color:var(--info);}
+  .banner.strength{color:var(--strength); background:var(--strength-soft); border-left-color:var(--strength);}
+  .banner.down{color:var(--down); background:var(--down-soft); border-left-color:var(--down);}
+
+  /* ===== 特别说明横幅（周末版/假期版等） ===== */
+  .special-note{background:var(--panel-2); border:1px dashed var(--border); border-radius:8px; padding:10px 12px;
+    margin-bottom:var(--gap); font-size:12px; color:var(--dim); line-height:1.7;}
+  .special-note b{color:var(--warn);}
+
+  /* ===== HERO 首屏结论 ===== */
+  .hero{background:linear-gradient(160deg,var(--panel-2),var(--panel) 70%); border:1px solid var(--border); border-radius:var(--r); padding:16px; margin-bottom:var(--gap);}
+  .hero-headline{font-family:var(--fd); font-size:22px; font-weight:900; line-height:1.35; margin:2px 0 8px;}
+  .hero-desc{font-size:12.5px; color:var(--dim); line-height:1.7;}
+  .kpi-row{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-top:10px;}
+  .kpi{background:var(--panel-3); border:1px solid var(--border-soft); border-radius:9px; padding:9px 10px;}
+  .kpi .kl{font-size:12px; color:var(--faint);}
+  .kpi .kv{font-family:var(--fm); font-size:19px; font-weight:700; margin-top:2px; line-height:1.2;}
+  .kpi .ks{font-size:12px; color:var(--dim); margin-top:1px;}
+
+  /* ===== VIX KPI（首屏一级元素） ===== */
+  .vix-kpi{background:var(--panel-3); border:1px solid var(--border-soft); border-radius:9px; padding:10px 12px; margin-top:8px;
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;}
+  .vix-kpi .vl{font-size:12px; color:var(--faint);}
+  .vix-kpi .vv{font-family:var(--fm); font-size:28px; font-weight:800; line-height:1;}
+  .vix-kpi .vchg{font-size:14px; font-weight:700;}
+  .vix-gauge{flex:1; min-width:120px;}
+  .vix-gauge .gl{display:flex; justify-content:space-between; font-size:10px; color:var(--faint); margin-bottom:3px; font-family:var(--fm);}
+  .vix-gauge .gbar{height:6px; border-radius:3px; background:linear-gradient(to right, var(--down), var(--warn), var(--up)); position:relative;}
+  .vix-gauge .gdot{position:absolute; top:-3px; width:12px; height:12px; border-radius:50%; background:var(--text); border:2px solid var(--bg); transform:translateX(-50%);}
+  .vix-zone{font-size:11.5px; margin-top:6px; padding:6px 9px; border-radius:6px; font-weight:600;}
+  .vix-zone.panic{color:var(--up); background:var(--up-soft); border:1px solid var(--up-border);}
+  .vix-zone.calm{color:var(--down); background:var(--down-soft); border:1px solid var(--down-border);}
+  .vix-zone.caution{color:var(--warn); background:var(--warn-soft); border:1px solid var(--warn-border);}
+
+  /* ===== 持仓/自选隔夜联动速览 ===== */
+  .hold-strip{margin-top:12px; border-top:1px dashed var(--border-soft); padding-top:10px;}
+  .hold-strip .hl{font-size:11.5px; color:var(--faint); margin-bottom:6px; letter-spacing:.04em;}
+  .hold-chips{display:flex; gap:6px; flex-wrap:wrap;}
+  .hchip{font-family:var(--fm); font-size:11.5px; padding:4px 8px; border-radius:7px; background:var(--panel-2);
+    border:1px solid var(--border-soft); display:inline-flex; align-items:center; gap:4px;}
+  .hchip .hc-n{color:var(--dim); font-family:var(--fb); font-size:11px;}
+  .hchip .hc-v{font-weight:700;}
+
+  /* ===== 指数行 ===== */
+  .idx-row{display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border-soft);}
+  .idx-row:last-child{border-bottom:none;}
+  .idx-name{font-size:14px;} .idx-name small{display:block; color:var(--faint); font-size:11px; font-family:var(--fm); margin-top:1px;}
+  .idx-close{font-family:var(--fm); font-size:13px; color:var(--text); text-align:right;}
+  .idx-chg{font-family:var(--fm); font-size:18px; font-weight:700; text-align:right; min-width:84px;}
+
+  /* ===== 板块小标题 ===== */
+  .sec-panel-h{display:flex; align-items:center; gap:7px; font-family:var(--fd); font-size:13.5px; margin-bottom:10px;}
+  .sec-panel-h .sw{width:8px; height:8px; border-radius:50%;}
+
+  /* ===== 商品/债/汇 四格 ===== */
+  .macro-grid{display:grid; grid-template-columns:1fr 1fr; gap:7px; margin-top:10px;}
+  .macro-cell{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:8px; padding:9px 10px;}
+  .macro-cell .ml{font-size:11.5px; color:var(--faint);}
+  .macro-cell .mv{font-family:var(--fm); font-size:16px; font-weight:700; margin-top:2px; line-height:1.2;}
+  .macro-cell .ms{font-size:11px; color:var(--dim); margin-top:1px;}
+
+  /* ===== VIX 专用卡片 ===== */
+  .vix-card{border:1px solid var(--warn-border); background:linear-gradient(135deg,var(--warn-soft),var(--panel));}
+  .vix-card .vh{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;}
+  .vix-card .vn{font-family:var(--fd); font-weight:700; font-size:15px;}
+  .vix-card .vv{font-family:var(--fm); font-size:36px; font-weight:900; line-height:1; margin:8px 0 4px;}
+  .vix-card .vc{font-size:14px; font-weight:700;}
+  .vix-card .vd{font-size:12px; color:var(--dim); line-height:1.7; margin-top:6px;}
+
+  /* ===== 事件→板块关联映射 ===== */
+  .event-map{font-size:12.5px;}
+  .event-map .em-row{display:grid; grid-template-columns:1fr 1.2fr; gap:6px; padding:7px 0; border-bottom:1px solid var(--border-soft); align-items:start;}
+  .event-map .em-row:last-child{border-bottom:none;}
+  .event-map .em-src{color:var(--dim);}
+  .event-map .em-tgt{color:var(--text); font-weight:500;}
+
+  /* ===== 欧洲市场(弱化) ===== */
+  .eu-row{display:grid; grid-template-columns:1fr auto auto; align-items:center; gap:10px; padding:8px 0; border-bottom:1px solid var(--border-soft);}
+  .eu-row:last-child{border-bottom:none;}
+  .eu-name{font-size:13px; color:var(--dim);}
+  .eu-close{font-family:var(--fm); font-size:12px; color:var(--faint); text-align:right;}
+  .eu-chg{font-family:var(--fm); font-size:15px; font-weight:700; text-align:right; min-width:70px;}
+  .muted-box{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:8px; padding:11px 13px; font-size:11.5px; color:var(--dim); line-height:1.75; margin-top:8px;}
+  .muted-box b{color:var(--text);}
+
+  /* ===== 消息面分组 details ===== */
+  details{background:var(--panel); border:1px solid var(--border); border-radius:var(--r); margin-bottom:var(--gap); overflow:hidden;}
+  details[open]{border-color:var(--border);}
+  summary{list-style:none; cursor:pointer; padding:13px 14px; min-height:44px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  summary::-webkit-details-marker{display:none;}
+  summary::before{content:'▸'; color:var(--dim); font-size:11px; transition:.15s; margin-right:1px;}
+  details[open] summary::before{content:'▾';}
+  summary:active{background:var(--panel-2);}
+  .sum-name{font-family:var(--fd); font-weight:700; font-size:13.5px;}
+  .hold-body{padding:0 14px 14px;}
+  .news-item{display:flex; gap:8px; padding:8px 0; border-bottom:1px solid var(--border-soft); font-size:13px; color:var(--dim); line-height:1.7;}
+  .news-item:last-child{border-bottom:none;}
+  .news-item .dot{flex:none; width:6px; height:6px; border-radius:50%; margin-top:7px;}
+  .news-item b{color:var(--text);}
+  .rel-badge{font-size:11px; padding:2px 6px; border-radius:5px; font-weight:600; margin-left:4px; white-space:nowrap;}
+  .rel-badge.hold{color:var(--up); background:var(--up-soft); border:1px solid var(--up-border);}
+  .rel-badge.watch{color:var(--warn); background:var(--warn-soft); border:1px solid var(--warn-border);}
+  .rel-badge.none{color:var(--faint); background:var(--panel-2); border:1px solid var(--border-soft);}
+  .comp-row{padding:9px 0; border-bottom:1px solid var(--border-soft);}
+  .comp-row:last-child{border-bottom:none;}
+  .comp-row .cn{font-size:13px; font-weight:600;}
+  .comp-row .ce{font-size:11.5px; color:var(--dim); margin-top:3px; line-height:1.7;}
+
+  /* ===== 持仓技术参考位表（宽屏表格 + 窄屏卡片） ===== */
+  .ref-table{width:100%; border-collapse:collapse; font-size:12px;}
+  .ref-table th,.ref-table td{padding:7px 6px; text-align:left; vertical-align:top; border-bottom:1px solid var(--border-soft);}
+  .ref-table th{font-size:11px; color:var(--faint); font-weight:500; white-space:nowrap;}
+  .ref-table td{font-family:var(--fm);}
+  .ref-table .rn{font-family:var(--fb); font-weight:600; color:var(--text);}
+  .ref-card-list{display:none;}
+  .ref-notes{margin-top:10px; border-top:1px dashed var(--border-soft); padding-top:10px;}
+  .ref-notes p{font-size:11.5px; color:var(--dim); line-height:1.75; margin-bottom:4px;}
+  .ref-notes p b{color:var(--text);}
+  .nd-tag{font-size:11px; color:var(--faint); font-style:normal;}
+
+  @media (max-width:520px){
+    .ref-table{display:none;}
+    .ref-card-list{display:block;}
+    .ref-card-item{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:9px; padding:11px 12px; margin-bottom:8px;}
+    .ref-card-item .rch{display:flex; justify-content:space-between; align-items:baseline; gap:6px; margin-bottom:6px;}
+    .ref-card-item .rch .rcn{font-size:13px; font-weight:600;}
+    .ref-card-item .rch .rcc{font-family:var(--fm); font-size:14px; font-weight:700;}
+    .ref-grid{display:grid; grid-template-columns:1fr 1fr; gap:4px 8px; font-size:11px;}
+    .ref-grid .rl{color:var(--faint);} .ref-grid .rv{font-family:var(--fm); color:var(--dim); text-align:right;}
+  }
+
+  /* ===== 短期机会（独立分栏） ===== */
+  .opp-sec{border-left:3px solid var(--info); padding-left:10px; margin-left:-10px;}
+  .empty-card{background:var(--panel); border:1px dashed var(--border); border-radius:var(--r); padding:22px 16px; text-align:center;}
+  .empty-card .ei{font-size:24px; margin-bottom:8px;}
+  .empty-card h3{font-family:var(--fd); font-size:14.5px; margin-bottom:6px;}
+  .empty-card p{font-size:12px; color:var(--dim); line-height:1.8;}
+  .opp-card{text-align:left; background:var(--panel); border:1px solid var(--border); border-radius:var(--r); padding:12px 14px; margin-bottom:8px;}
+  .opp-card h3{font-family:var(--fd); font-size:14px; margin-bottom:4px;}
+  .opp-card .ocat{font-size:12px; color:var(--info); font-weight:600; margin-bottom:4px;}
+  .opp-card p{font-size:12px; color:var(--dim); line-height:1.75;}
+
+  /* ===== 核对表 / 日程（宽屏表格 + 窄屏卡片） ===== */
+  .check-table{width:100%; border-collapse:collapse; font-size:12px;}
+  .check-table th,.check-table td{padding:7px 6px; text-align:left; vertical-align:top; border-bottom:1px solid var(--border-soft);}
+  .check-table th{font-size:11px; color:var(--faint); font-weight:500;}
+  .check-table td{color:var(--dim);}
+  .check-table .ci{font-weight:600; color:var(--text);}
+  .check-card-list{display:none;}
+  @media (max-width:520px){
+    .check-table{display:none;}
+    .check-card-list{display:block;}
+    .check-item{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:9px; padding:10px 12px; margin-bottom:8px;}
+    .check-item .ci-head{font-size:12.5px; font-weight:600; margin-bottom:4px;}
+    .check-item .ci-body{font-size:11.5px; color:var(--dim); line-height:1.7;}
+  }
+
+  /* ===== 日程卡片 ===== */
+  .sched-card{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:9px; padding:10px 12px; margin-bottom:7px;}
+  .sched-card .sh{display:flex; justify-content:space-between; align-items:baseline; gap:8px;}
+  .sched-card .sd{font-family:var(--fm); font-size:11.5px; color:var(--info); font-weight:600;}
+  .sched-card .st{font-size:11.5px; color:var(--faint);}
+  .sched-card .ss{font-size:12.5px; font-weight:600; margin:3px 0;}
+  .sched-card .sn{font-size:11px; color:var(--dim); line-height:1.6;}
+
+  /* ===== 观察清单卡片 ===== */
+  .obs-item{background:var(--panel); border:1px solid var(--border); border-radius:9px; padding:11px 12px; margin-bottom:8px;}
+  .obs-item .oh{display:flex; justify-content:space-between; align-items:baseline; gap:8px; margin-bottom:3px;}
+  .obs-item .on{font-size:13px; font-weight:600;}
+  .obs-item .or{font-size:11.5px; color:var(--dim); line-height:1.7;}
+  .obs-src{font-family:var(--fm); font-size:10.5px;}
+  .obs-src.news{color:var(--info);} .obs-src.legacy{color:var(--warn);}
+  .obs-src.sched{color:var(--strength);} .obs-src.tech{color:var(--flow);}
+
+  /* ===== 隔夜外盘定性收口 ===== */
+  .overnight-qual{background:var(--panel-2); border:1px solid var(--border); border-radius:9px; padding:12px 14px; margin-bottom:10px;}
+  .overnight-qual .oq-head{font-family:var(--fd); font-size:14px; font-weight:700; margin-bottom:5px;}
+  .overnight-qual .oq-body{font-size:12.5px; color:var(--dim); line-height:1.7;}
+  .overnight-qual .oq-body b{color:var(--text);}
+
+  /* ===== 宏观更新队列条目 ===== */
+  .macro-q-item{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:8px; padding:10px 12px; margin-bottom:6px; font-size:11.5px; color:var(--dim); line-height:1.7;}
+  .macro-q-item .mq-cat{font-family:var(--fm); font-size:11px; color:var(--warn); font-weight:600; margin-bottom:2px;}
+  .macro-q-item .mq-dim{font-size:12.5px; font-weight:600; color:var(--text);}
+  .macro-q-item .mq-desc{margin-top:3px;}
+  .macro-q-item .mq-impact{margin-top:3px; color:var(--warn); font-size:11px;}
+
+  /* ===== 中长期提示横幅 ===== */
+  .lt-hint{background:var(--info-soft); border:1px solid rgba(76,141,255,.4); border-radius:8px; padding:10px 13px; margin-top:12px; font-size:12px; color:var(--dim); line-height:1.7;}
+  .lt-hint b{color:var(--text);}
+
+  /* ===== 页脚 ===== */
+  footer{margin-top:30px; border-top:1px solid var(--border-soft); padding-top:16px;}
+  footer .meta{font-family:var(--fm); font-size:11.5px; color:var(--faint); margin-bottom:8px; line-height:1.7;}
+  footer .disc{font-size:11.5px; color:var(--faint); line-height:1.85;}
+  footer .disc b{color:var(--dim);}
+
+  @media (min-width:480px){ .kpi-row{grid-template-columns:repeat(3,1fr);} }
+</style>
+</head>
+<body>
+
+<!-- ============ 顶部窄标题 ============ -->
+<div class="top">
+  <span class="t">早间消息推送</span>
+  <span class="d">2026-06-28（周日·周末版）</span>
+  <a class="src-flag" href="#disc">⚠️ 数据源说明</a>
+</div>
+
+<!-- ============ 特别说明（周末版/假期版等，无则整块隐藏） ============ -->
+<!-- 缺失时：非周末/非假期 → 整块隐藏 -->
+<div class="special-note">
+  <b>📌 周末版特别说明：</b>今日为周日，A股休市。本推送覆盖周五（6/26）收盘后至周日（6/28）的完整周末消息窗口，为下周一（6/29）开盘做准备。取数工具以联网搜索为主（Wind MCP 本次未经试探验证），所有精确数字均来源于公开搜索、未经专业金融源核对。数据截止：2026-06-28 上午。
+</div>
+
+<!-- ============ ① HERO 首屏核心结论 ============ -->
+<!--
+  模块：总览结论（隔夜外盘整体判断）
+  数据：报告"今日技术参考位 → 隔夜外盘定性"定性收口 + 美股三大指数 + VIX + A50 期货
+  形式：大字定性结论 → 美股三指数 KPI → VIX 专用条（当前值+阈值色条+情绪徽章）→ A50 KPI → 持仓隔夜联动速览
+  缺失时：VIX 缺失 → VIX KPI 显示"—"并标"VIX 本次未获取"、阈值色条隐藏；A50 缺失 → 隐藏该 KPI；持仓无数据 → 隐藏持仓速览条
+-->
+<section class="hero">
+  <div class="sec-eye">overnight · 隔夜外盘总览</div>
+  <div class="hero-headline"><span class="down">偏弱</span>但非恐慌：<span class="up">A50 反弹</span>暗示 A 股有独立韧性</div>
+  <div class="hero-desc">美股三大指数周五微跌、费城半导体暴跌 5.29%，欧洲全线收跌，VIX 18.89 偏谨慎——隔夜外盘整体偏弱，AI/科技方向压力最大。但 A50 期货夜盘 <b class="up">+0.82% 至 15,432</b>，国内政策面暖风（国补+科技金融+工业利润超预期）部分对冲海外情绪传导。</div>
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="kl">道指</div><div class="kv down num">51,876<span class="ks"> ▼0.09%</span></div><div class="ks">周 +0.6%</div></div>
+    <div class="kpi"><div class="kl">标普 500</div><div class="kv down num">7,354<span class="ks"> ▼0.05%</span></div><div class="ks">周 -1.95%</div></div>
+    <div class="kpi"><div class="kl">纳指</div><div class="kv down num">25,298<span class="ks"> ▼0.24%</span></div><div class="ks">周 -4.60%</div></div>
+  </div>
+
+  <!-- VIX 专用条（首屏一级元素） -->
+  <div class="vix-kpi">
+    <div><div class="vl">VIX 恐慌指数</div><div class="vv num">18.89</div></div>
+    <div><div class="vchg up">▲1.4%</div><div class="faint" style="font-size:11px;">盘中一度触及 21 回落</div></div>
+    <div class="vix-gauge">
+      <div class="gl"><span>＜15 贪婪</span><span>15-25 温和紧张</span><span>＞25 恐慌</span></div>
+      <div class="gbar"><div class="gdot" style="left:42%;"></div></div>
+    </div>
+    <span class="tag warn">⚠ 偏谨慎</span>
+  </div>
+
+  <!-- A50 期货（如有） -->
+  <div class="kpi-row" style="margin-top:8px;">
+    <div class="kpi"><div class="kl">A50 期货夜盘</div><div class="kv up num">15,432<span class="ks"> ▲0.82%</span></div><div class="ks">vs A股收盘 15,306</div></div>
+  </div>
+
+  <!-- 持仓/自选隔夜联动速览 -->
+  <div class="hold-strip">
+    <div class="hl">我的持仓 / 自选 · 隔夜消息联动</div>
+    <div class="hold-chips">
+      <span class="hchip"><span class="hc-n">沪电</span><span class="hc-v">PCB 基本面强劲</span></span>
+      <span class="hchip"><span class="hc-n">长电</span><span class="hc-v">封测扩产共振</span></span>
+      <span class="hchip"><span class="hc-n">半导体设备ETF</span><span class="hc-v warn">⚠ 极度过热</span></span>
+      <span class="hchip"><span class="hc-n">利通</span><span class="hc-v down">跌停·待确认</span></span>
+      <span class="hchip"><span class="hc-n">宝丰</span><span class="hc-v down">油价逆风</span></span>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ② 隔夜美股详情 ============ -->
+<section class="sec">
+  <div class="sec-eye">us markets · 隔夜美股</div>
+  <div class="sec-title">隔夜美股 <span class="sub">周五 6/26 收盘 · 费城半导体暴跌 5.29%</span></div>
+  <div class="card">
+    <div class="idx-row"><div class="idx-name">道琼斯工业 <small>DJIA</small></div><div class="idx-close num">51,876.11</div><div class="idx-chg down num">▼0.09%</div></div>
+    <div class="idx-row"><div class="idx-name">标普 500 <small>S&P 500</small></div><div class="idx-close num">7,354.02</div><div class="idx-chg down num">▼0.05%</div></div>
+    <div class="idx-row"><div class="idx-name">纳斯达克综合 <small>NASDAQ</small></div><div class="idx-close num">25,297.62</div><div class="idx-chg down num">▼0.24%</div></div>
+    <div class="idx-row"><div class="idx-name">费城半导体 <small>SOX</small></div><div class="idx-close faint">—</div><div class="idx-chg down num">▼5.29%</div></div>
+    <div class="takeaway" style="margin-top:6px;">全周分化剧烈：道指周涨 +0.6% 抗跌，纳指周跌 <b class="down">-4.60%</b> 受 AI/芯片股抛售潮重创。</div>
+  </div>
+  <div class="card">
+    <div class="sec-panel-h" style="margin-bottom:8px;"><span class="sw" style="background:var(--down);"></span>中国概念股 / ADR</div>
+    <div class="idx-row"><div class="idx-name">金龙中国指数 <small>HXC</small></div><div class="idx-close faint">—</div><div class="idx-chg down num">▼2.7%</div></div>
+    <div class="idx-row"><div class="idx-name">中概互联网 ETF <small>KWEB</small></div><div class="idx-close faint">—</div><div class="idx-chg down num">▼2.7%</div></div>
+    <div class="takeaway" style="margin-top:6px;">个股普跌：携程 <b class="down">-12.5%</b>，阿里 -4.8%。但 A 股 ETF 逆势上涨——ASHR <b class="up">+2.3%</b>，CQQQ <b class="up">+1.1%</b>。整体对周一 A 股开盘情绪 <b>偏负面但非恐慌级别</b>。</div>
+  </div>
+  <div class="card">
+    <div class="sec-panel-h" style="margin-bottom:4px;"><span class="sw" style="background:var(--info);"></span>美债 · 美元 · 大宗商品</div>
+    <div class="macro-grid">
+      <div class="macro-cell"><div class="ml">10Y 美债收益率</div><div class="mv num">4.38%</div><div class="ms">高位徘徊</div></div>
+      <div class="macro-cell"><div class="ml">美元指数 DXY</div><div class="mv down num">101.35</div><div class="ms">▼0.16% 温和走弱</div></div>
+      <div class="macro-cell"><div class="ml">布伦特原油</div><div class="mv down num">$71.99</div><div class="ms">▼4.34% 大跌</div></div>
+      <div class="macro-cell"><div class="ml">黄金</div><div class="mv up num">$4,096</div><div class="ms">▲1.2% 避险升温</div></div>
+    </div>
+    <div class="takeaway" style="margin-top:8px;">油价大跌主因霍尔木兹海峡局势缓和预期及全球需求担忧；黄金上涨反映避险情绪升温。</div>
+  </div>
+  <div class="card vix-card">
+    <div class="vh"><span class="vn">VIX 恐慌指数</span><span class="tag warn">⚠ 偏谨慎</span></div>
+    <div class="vv num">18.89</div>
+    <div class="vc up">▲1.4%（盘中一度触及 21 后回落）</div>
+    <div class="vix-zone caution">📍 位于 15-25「温和紧张」区间，未触及恐慌阈值（>25），但高于长期中位数</div>
+    <div class="vd">对 A 股开盘影响：VIX 未飙升意味着全球 systemic risk 未失控，但 18.89 水平表明市场风险偏好偏低，可能制约 A 股科技/AI 板块开盘反弹力度。<br>定性为<b>"偏谨慎"</b>——反映 AI 科技股获利了结、中东地缘不确定性、以及 Fed 政策方向的不明朗。</div>
+  </div>
+  <div class="card">
+    <div class="sec-panel-h" style="margin-bottom:6px;"><span class="sw" style="background:var(--strength);"></span>重要美股事件 → 国内板块关联映射</div>
+    <div class="event-map">
+      <div class="em-row"><div class="em-src">费城半导体暴跌 5.29%</div><div class="em-tgt"><span class="tag down">→</span> A 股半导体/AI 算力链</div></div>
+      <div class="em-row"><div class="em-src">安森美收购闪崩 24%</div><div class="em-tgt"><span class="tag warn">→</span> "高价并购"面临审视——与拓荆科技收购形成对比</div></div>
+      <div class="em-row"><div class="em-src">OpenAI 可能推迟 IPO 至 2027</div><div class="em-tgt"><span class="tag info">→</span> AI 投资回报预期降温</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ③ 欧洲及全球市场 ============ -->
+<section class="sec">
+  <div class="sec-eye">europe & global · 欧洲及全球</div>
+  <div class="sec-title">欧洲及全球其他市场 <span class="sub">周五 6/26 收盘 · 全线收跌</span></div>
+  <div class="card">
+    <div class="eu-row"><div class="eu-name">STOXX 600</div><div class="eu-close faint">—</div><div class="eu-chg down num">▼0.67%</div></div>
+    <div class="eu-row"><div class="eu-name">DAX</div><div class="eu-close faint">—</div><div class="eu-chg down num">▼1.29%</div></div>
+    <div class="eu-row"><div class="eu-name">CAC 40</div><div class="eu-close faint">—</div><div class="eu-chg down num">▼0.55%</div></div>
+    <div class="eu-row"><div class="eu-name">FTSE 100</div><div class="eu-close faint">—</div><div class="eu-chg down num">▼0.21%</div></div>
+    <div class="takeaway">跌幅整体小于美股科技板块。科技子板块领跌，能源板块跌约 2% 受油价暴跌拖累。</div>
+  </div>
+  <div class="muted-box">
+    <b>🌐 全球宏观事件（周末时段）：</b><br>
+    <b>霍尔木兹海峡局势严重升级：</b>周六（6/27）油轮遭袭，美军随后对伊朗发动打击。联合海上信息中心将安全威胁等级上调至"较高"。<b>可能推升周一原油价格并强化全球避险情绪。</b><br>
+    <b>美联储政策预期：</b>市场定价 7/28-29 FOMC 约 70% 概率维持利率不变。美国 5 月通胀率 4.1% 仍在高位。
+  </div>
+  <div class="faint" style="font-size:11px; margin-top:6px;">（不含亚太——完整亚太数据见 6/26 晚间复盘报告）</div>
+</section>
+
+<!-- ============ ④ 隔夜消息汇总（可折叠四组） ============ -->
+<section class="sec">
+  <div class="sec-eye">news flow · 隔夜消息</div>
+  <div class="sec-title">隔夜消息汇总 <span class="sub">周五晚间 → 周日 · 按类分组，点击展开</span></div>
+  <details open>
+    <summary><span class="sum-name">🏛️ 国内政策与监管</span><span class="tag flat" style="margin-left:auto;">5 条</span></summary>
+    <div class="hold-body">
+      <div class="news-item"><span class="dot" style="background:var(--up);"></span><span><b>第三批 625 亿元"国补"资金下达：</b>发改委宣布超长期特别国债支持消费品以旧换新资金已下达，补贴撬动比由 1:7.8 提升至 1:10.3。</span></div>
+      <div class="news-item"><span class="dot" style="background:var(--info);"></span><span><b>《利用外资固稳促优行动方案》发布：</b>商务部等三部门联合发布 15 条举措。</span></div>
+      <div class="news-item"><span class="dot" style="background:var(--warn);"></span><span><b>证监会开出私募史上最重罚单：</b>玖瀛资产、腾创投资合计罚没近 5800 余万元。</span></div>
+      <div class="news-item"><span class="dot" style="background:var(--info);"></span><span><b>公募基金"换尺"第二批全面启动：</b>90 多家管理人、千余只产品调整业绩比较基准，可能引发风格再平衡。</span></div>
+      <div class="news-item"><span class="dot" style="background:var(--warn);"></span><span><b>30 家 A 股公司周五晚间集体提示风险：</b>涉及精测电子、飞凯材料、TCL 中环等，监管对概念炒作降温信号明确。</span></div>
+    </div>
+  </details>
+  <details open>
+    <summary><span class="sum-name">⚙️ 行业与产业动态</span><span class="tag flat" style="margin-left:auto;">5 组</span></summary>
+    <div class="hold-body">
+      <div class="news-item"><span class="dot" style="background:var(--up);"></span><span><b>AI/半导体（主线）：</b>拓荆科技拟收购无锡尚积半导体控股权；华工正源 800G 以上光模块出口同比增长超 <b>100 倍</b>；"光模块降价传闻"已被<b>正式证伪</b>；村田 MLCC 7/1 起涨价 10%-40%；甬矽电子拟 103 亿元投建封测三期。</span></div>
+      <div class="news-item"><span class="dot" style="background:var(--up);"></span><span><b>消费电子/制造业：</b>1-5 月规上工业企业利润同比 <b class="up">+18.8%</b>。电子行业利润暴增 <b class="up">+103.9%</b>，电子专用材料制造利润暴增 <b class="up">+665.4%</b>。但 5 月社零同比 <b class="down">-0.6%</b>。</span></div>
+      <div class="news-item"><span class="dot" style="background:var(--down);"></span><span><b>锂电/能源金属：</b>碳酸锂期货主力合约周五收 <b class="down">150,220 元/吨（-3.23%）</b>，全周暴跌 <b class="down">-9.33%</b>。</span></div>
+      <div class="news-item"><span class="dot" style="background:var(--strength);"></span><span><b>核聚变/超导：</b>我国核聚变堆超导磁体研发取得里程碑式突破。</span></div>
+      <div class="news-item"><span class="dot" style="background:var(--info);"></span><span><b>IPO 节奏：</b>上半年 24 家 A 股公司发行 H 股募资约 1217 亿港元创历史同期新高；69 家企业首发上市（同比+35%）。</span></div>
+    </div>
+  </details>
+  <details>
+    <summary><span class="sum-name">🏢 公司层面</span><span class="tag flat" style="margin-left:auto;">8 家</span></summary>
+    <div class="hold-body">
+      <div class="comp-row"><div class="cn">长电科技（600584）<span class="rel-badge hold">🔴 直接相关（持仓）</span></div><div class="ce">周末未出现新的负面公告。78 亿临港扩产正常推进。甬矽电子 103 亿封测扩产 + 拓荆科技并购均为行业正面共振。</div></div>
+      <div class="comp-row"><div class="cn">沪电股份（002463）<span class="rel-badge hold">🔴 直接相关（持仓）</span></div><div class="ce">周末未出现新的公告/事件。电子行业 1-5 月利润暴增 665.4% 对 PCB 企业基本面构成强劲支撑。</div></div>
+      <div class="comp-row"><div class="cn">半导体设备ETF（159558）<span class="rel-badge hold">🔴 直接相关（持仓）</span></div><div class="ce">拓荆科技收购尚积半导体是周末最重要行业事件。但 ETF 指标极度过热（RSI 92+、bias +28%）需警惕。</div></div>
+      <div class="comp-row"><div class="cn">利通电子（603629）<span class="rel-badge watch">🟡 间接相关（自选）</span></div><div class="ce">6/26 跌停后周末未出现新的负面公告。跌停更可能为市场行为，需持续关注是否有后续公告。</div></div>
+      <div class="comp-row"><div class="cn">宝丰能源（600989）<span class="rel-badge watch">🟡 间接相关（自选）</span></div><div class="ce">周末无新公告。煤化工板块受能源价格走弱（油价跌 4%）可能面临短期逆风。</div></div>
+      <div class="comp-row"><div class="cn">拓荆科技 <span class="rel-badge none">半导体设备同行业</span></div><div class="ce">拟收购无锡尚积半导体控股权，6/29 起停牌。</div></div>
+      <div class="comp-row"><div class="cn">祥鑫科技 <span class="rel-badge none">无直接关联</span></div><div class="ce">拟收购苏州酷尔芯 51% 股权，6/29 起停牌。</div></div>
+      <div class="comp-row"><div class="cn">甬矽电子 <span class="rel-badge none">封测同行业</span></div><div class="ce">拟 103 亿投建封测三期。</div></div>
+    </div>
+  </details>
+  <details>
+    <summary><span class="sum-name">🌐 国际重大事件</span><span class="tag flat" style="margin-left:auto;">3 条</span></summary>
+    <div class="hold-body">
+      <div class="news-item"><span class="dot" style="background:var(--warn);"></span><span><b>霍尔木兹海峡军事冲突升级（Tier 3）：</b>周六（6/27）油轮遭袭，美军打击伊朗，伊朗反击。美伊停火协议面临破裂风险。</span></div>
+      <div class="news-item"><span class="dot" style="background:var(--down);"></span><span><b>全球 AI/芯片股"黑色一周"：</b>费城半导体指数全周暴跌，AI 链全线回调——这一主题可能在 7 月持续发酵。</span></div>
+      <div class="news-item"><span class="dot" style="background:var(--info);"></span><span><b>美股科技股估值压力</b>获多家机构警示，AI 主题短期分歧显著加大。</span></div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ ⑤ 今日技术参考位 ============ -->
+<section class="sec">
+  <div class="sec-eye">technical reference · 技术参考位</div>
+  <div class="sec-title">今日技术参考位 <span class="sub">承接 6/26 晚间复盘 · 盘前不现算</span></div>
+  <div class="overnight-qual">
+    <div class="oq-head">隔夜外盘定性</div>
+    <div class="oq-body">美股三大指数周五微跌、费城半导体暴跌 5.29%，欧洲全线收跌，VIX 18.89 偏谨慎——<b>隔夜外盘整体偏弱，AI/科技方向压力最大</b>。但 A50 期货夜盘 <b class="up">+0.82% 至 15,432</b>，给出积极信号。<b>整体定性为"偏弱但非恐慌，A50 反弹暗示 A 股有独立韧性"</b>。</div>
+  </div>
+  <div class="card">
+    <div class="sec-panel-h" style="margin-bottom:8px;"><span class="sw" style="background:var(--info);"></span>持仓今日观察基准 <em class="nd-tag">（均为参考位，非下单指令）</em></div>
+    <table class="ref-table">
+      <thead><tr><th>标的</th><th>昨收</th><th>支撑位</th><th>压力位</th><th>均线关键位</th><th>过热/超卖警示</th></tr></thead>
+      <tbody>
+        <tr><td class="rn">上证指数</td><td>4,027</td><td>4,004（3次）→3,928</td><td>4,192（5次）</td><td>MA250≈3,914</td><td>ADX 18.7</td></tr>
+        <tr><td class="rn">沪电股份 002463</td><td>147.28</td><td>137（MA20）→122</td><td>156（新高）</td><td>MA20≈137</td><td>—</td></tr>
+        <tr><td class="rn">长电科技 600584</td><td>100.89</td><td>95→86→81</td><td>109（新高）</td><td>MA10≈86</td><td><span class="tag warn">⚠ bias+24%</span></td></tr>
+        <tr><td class="rn">半导体设备ETF 159558</td><td>4.15</td><td>3.88→3.61→3.24</td><td>4.21（新高）</td><td>MA10≈3.61</td><td><span class="tag warn">⚠⚠ RSI92+</span></td></tr>
+        <tr><td class="rn">利通电子 603629</td><td>187.09</td><td>184→138</td><td>241（新高）</td><td>MA20≈184</td><td><span class="tag down">跌停</span></td></tr>
+        <tr><td class="rn">宝丰能源 600989</td><td>20.74</td><td>18.88</td><td>24.03</td><td>MA250≈20.80（失守）</td><td><span class="tag down">RSI 25</span></td></tr>
+      </tbody>
+    </table>
+    <div class="ref-card-list">
+      <div class="ref-card-item"><div class="rch"><span class="rcn">上证指数</span><span class="rcc">4,027</span></div><div class="ref-grid"><div class="rl">支撑</div><div class="rv">4,004→3,928</div><div class="rl">压力</div><div class="rv">4,192</div><div class="rl">MA250</div><div class="rv">3,914</div><div class="rl">警示</div><div class="rv">ADX 18.7</div></div></div>
+      <div class="ref-card-item"><div class="rch"><span class="rcn">沪电股份 002463</span><span class="rcc">147.28</span></div><div class="ref-grid"><div class="rl">支撑</div><div class="rv">137→122</div><div class="rl">压力</div><div class="rv">156</div><div class="rl">MA20</div><div class="rv">≈137</div><div class="rl">警示</div><div class="rv">—</div></div></div>
+      <div class="ref-card-item"><div class="rch"><span class="rcn">长电科技 600584</span><span class="rcc">100.89</span></div><div class="ref-grid"><div class="rl">支撑</div><div class="rv">95→86→81</div><div class="rl">压力</div><div class="rv">109</div><div class="rl">MA10</div><div class="rv">≈86</div><div class="rl">警示</div><div class="rv warn">⚠ bias+24%</div></div></div>
+      <div class="ref-card-item"><div class="rch"><span class="rcn">半导体设备ETF 159558</span><span class="rcc">4.15</span></div><div class="ref-grid"><div class="rl">支撑</div><div class="rv">3.88→3.61→3.24</div><div class="rl">压力</div><div class="rv">4.21</div><div class="rl">MA10</div><div class="rv">≈3.61</div><div class="rl">警示</div><div class="rv warn">⚠⚠ RSI92+</div></div></div>
+      <div class="ref-card-item"><div class="rch"><span class="rcn">利通电子 603629</span><span class="rcc">187.09</span></div><div class="ref-grid"><div class="rl">支撑</div><div class="rv">184→138</div><div class="rl">压力</div><div class="rv">241</div><div class="rl">MA20</div><div class="rv">≈184</div><div class="rl">警示</div><div class="rv down">跌停</div></div></div>
+      <div class="ref-card-item"><div class="rch"><span class="rcn">宝丰能源 600989</span><span class="rcc">20.74</span></div><div class="ref-grid"><div class="rl">支撑</div><div class="rv">18.88</div><div class="rl">压力</div><div class="rv">24.03</div><div class="rl">MA250</div><div class="rv">≈20.80 失守</div><div class="rl">警示</div><div class="rv down">RSI 25</div></div></div>
+    </div>
+    <div class="ref-notes">
+      <p><b>沪电股份</b> 昨收 147.28，支撑 137（MA20）、压力 156 —— 今日若回踩 137 一带可观察是否缩量企稳（均为参考位，非下单指令）</p>
+      <p><b>长电科技</b> 昨收 100.89，支撑 95/86/81、压力 109。⚠️ bias20 +24%、KDJ J≈99 极度超买，短期修正压力仍大</p>
+      <p><b>半导体设备ETF</b> 昨收 4.15，支撑 3.88/3.61/3.24、压力 4.21。⚠️⚠️ RSI 92 + J≈100 + bias +28% 三大过热指标同时亮红灯。今日若受拓荆科技收购利好高开，注意 <b>"利好高开-过热指标区域获利了结"</b> 的经典风险组合。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ ⑥ 短期机会发掘 ============ -->
+<section class="sec opp-sec">
+  <div class="sec-eye">new opportunities · 短期机会（与中长期持仓分栏）</div>
+  <div class="sec-title">短期机会发掘 <span class="sub">口径与中长期持仓分开，不混用</span></div>
+  <div class="opp-card"><h3>半导体设备/材料（结构性催化剂）</h3><div class="ocat">事件驱动 · 拓荆科技收购 + 电子行业利润 +103.9%</div><p>国产半导体设备"并购整合"叙事开启，但 159558 已极度过热（RSI 92+），短期追高性价比较差。<b>仅观察标记，不建议周一开盘追涨。</b></p></div>
+  <div class="opp-card"><h3>封测产业链</h3><div class="ocat">行业资本开支共振</div><p>甬矽电子 103 亿封测扩产 + 长电科技 78 亿临港项目形成行业资本开支共振，下半年封测设备/材料供应商可能持续受益。</p></div>
+  <div class="opp-card"><h3>核聚变/超导主题</h3><div class="ocat">短期事件催化 · 持续性存疑</div><p>核聚变堆超导磁体里程碑式突破，可能引发短期主题炒作。但历史上持续性短，仅作盘中观察标记。</p></div>
+</section>
+
+<!-- ============ ⑦ 昨晚隔夜观察事项核对 ============ -->
+<section class="sec">
+  <div class="sec-eye">checkback · 隔夜核对</div>
+  <div class="sec-title">昨晚隔夜观察事项核对 <span class="sub">逐条跟进 6/26 晚间复盘遗留</span></div>
+  <table class="check-table">
+    <thead><tr><th>事项</th><th>隔夜/周末进展</th><th>结论</th></tr></thead>
+    <tbody>
+      <tr><td class="ci">全球科技股情绪</td><td>美股周五费城半导体暴跌 5.29%，纳指周跌 4.60%；但 A50 期货 +0.82% 反弹</td><td><span class="tag warn">🔄 并入观察清单</span></td></tr>
+      <tr><td class="ci">长电科技（600584）</td><td>周末未出现新的负面公告。甬矽电子 103 亿封测扩产形成行业正面共振</td><td><span class="tag info">✅ 无新增负面</span></td></tr>
+      <tr><td class="ci">利通电子（603629）</td><td>6/26 跌停后周末无新公告。此前谣言已在 6/8 澄清</td><td><span class="tag warn">🔄 并入观察清单</span></td></tr>
+      <tr><td class="ci">碳酸锂期货</td><td>全周 -9.33%。15 万附近下游备库积极性提升</td><td><span class="tag warn">🔄 并入观察清单</span></td></tr>
+      <tr><td class="ci">季末流动性</td><td>央行 6/29 隔夜逆回购正式操作，平抑半年末波动</td><td><span class="tag info">✅ 已解释</span></td></tr>
+    </tbody>
+  </table>
+  <div class="check-card-list">
+    <div class="check-item"><div class="ci-head"><span class="tag warn">🔄 并入</span> 全球科技股情绪</div><div class="ci-body">美股周五费城半导体暴跌 5.29%，纳指周跌 4.60%；但 A50 期货 +0.82% 反弹。海外科技情绪<b>继续走弱</b>。</div></div>
+    <div class="check-item"><div class="ci-head"><span class="tag info">✅ 已解释</span> 长电科技（600584）</div><div class="ci-body">周末未出现新的负面公告。甬矽电子 103 亿封测扩产形成行业正面共振。<b>无新增负面</b>。</div></div>
+    <div class="check-item"><div class="ci-head"><span class="tag warn">🔄 并入</span> 利通电子（603629）</div><div class="ci-body">跌停后周末无新公告。跌停更可能为<b>市场行为而非基本面利空</b>。</div></div>
+    <div class="check-item"><div class="ci-head"><span class="tag warn">🔄 并入</span> 碳酸锂期货</div><div class="ci-body">全周 -9.33%。<b>跌势延续但接近关键支撑区</b>（15 万整数关）。</div></div>
+    <div class="check-item"><div class="ci-head"><span class="tag info">✅ 已解释</span> 季末流动性</div><div class="ci-body">央行 6/29 隔夜逆回购正式操作，对冲工具就位。</div></div>
+  </div>
+</section>
+
+<!-- ============ ⑧ 今日已知日程 ============ -->
+<section class="sec">
+  <div class="sec-eye">calendar · 已知日程</div>
+  <div class="sec-title">今日已知日程 <span class="sub">经济数据/会议/公告窗口 · 仅标注，不预测结果</span></div>
+  <div class="sched-card"><div class="sh"><span class="sd">6/29（周一）全天</span><span class="tag strength">算力主题</span></div><div class="ss">北京太空算力大会</div><div class="sn">可能催化算力/AI 基础设施主题，关注政策信号</div></div>
+  <div class="sched-card"><div class="sh"><span class="sd">6/29（周一）开盘</span><span class="tag info">流动性</span></div><div class="ss">央行新增隔夜逆回购正式操作</div><div class="sn">季末流动性对冲工具，关注资金利率变化</div></div>
+  <div class="sched-card"><div class="sh"><span class="sd">6/29（周一）开盘</span><span class="tag warn">停牌</span></div><div class="ss">拓荆科技（688072）、祥鑫科技停牌</div><div class="sn">半导体设备板块龙头停牌，板块资金关注度集中</div></div>
+  <div class="sched-card"><div class="sh"><span class="sd">6/29（周一）开盘</span><span class="tag warn">解禁</span></div><div class="ss">本周解禁市值超 1062 亿元（51 家公司）</div><div class="sn">通力科技解禁比例 75%，关注解禁个股压力</div></div>
+  <div class="sched-card"><div class="sh"><span class="sd">6/30（周二）上午</span><span class="tag warn">重磅数据</span></div><div class="ss">国家统计局公布 6 月 PMI</div><div class="sn"><b>本周最重要的宏观数据</b>——5 月为 50.0% 荣枯线</div></div>
+  <div class="sched-card"><div class="sh"><span class="sd">7/1（周三）</span><span class="tag info">涨价链</span></div><div class="ss">村田/松下/海康威视等多家公司产品涨价生效</div><div class="sn">涨价链主题——存储/MLCC/电容/工业品</div></div>
+  <div class="sched-card"><div class="sh"><span class="sd">7/2（周四）全天</span><span class="tag strength">AI 主题</span></div><div class="ss">上海国际具身智能产业博览会</div><div class="sn">机器人/AI 主题</div></div>
+  <div class="sched-card"><div class="sh"><span class="sd">7/3（周五）</span><span class="tag info">期货</span></div><div class="ss">碳酸锂期货及期权迎境外交易者</div><div class="sn">碳酸锂定价国际化，关注首日波动</div></div>
+</section>
+
+<!-- ============ ⑨ 已完成宏观更新队列 ============ -->
+<section class="sec">
+  <div class="sec-eye">macro update queue · 宏观更新</div>
+  <div class="sec-title">已完成宏观更新队列 <span class="sub">Tier 3 级新事件已追加至队列</span></div>
+  <div class="macro-q-item">
+    <div class="mq-cat">I_国际形势 · new_candidate</div>
+    <div class="mq-dim">中东局势-霍尔木兹海峡/美伊关系</div>
+    <div class="mq-desc">6/27 霍尔木兹海峡油轮遭袭，美军打击伊朗，伊朗反击。美伊停火协议面临破裂风险。此为自美伊签署谅解备忘录后美军首次袭击伊朗，中东地缘风险显著升级。</div>
+    <div class="mq-impact">若持续升级则油价反弹+全球避险情绪升温，利好能源/军工/黄金，利空航运/出口。当前仅作观察标记，不据此调整持仓。</div>
+  </div>
+</section>
+
+<!-- ============ ⑩ 今日观察清单 ============ -->
+<section class="sec">
+  <div class="sec-eye">watchlist · 今日观察</div>
+  <div class="sec-title">今日观察清单 <span class="sub">衔接 14:30 盘中复盘 · 仅作观察标记，非操作建议</span></div>
+
+  <div class="obs-item"><div class="oh"><span class="on">大盘 4000 整数关口</span><span class="obs-src tech">技术参考位</span></div><div class="or">上证收 4,027，最低 4,007，距 4,000 仅 7 点。周一若有效跌破 4,000 且放量则需关注 MA250（约 3,914）。</div></div>
+  <div class="obs-item"><div class="oh"><span class="on">上证指数风格分化</span><span class="obs-src tech">技术参考位</span></div><div class="or">科创 50（+6.32% 全周）vs 上证（-1.55%）分化至极。周一关注是科创补跌还是上证企稳修复。</div></div>
+  <div class="obs-item"><div class="oh"><span class="on">沪电股份 002463</span><span class="obs-src legacy">持仓·昨晚遗留</span></div><div class="or">AI PCB 基本面强劲，但海外 AI 情绪走弱。关注周一是否回踩 MA20（137）附近。</div></div>
+  <div class="obs-item"><div class="oh"><span class="on">长电科技 600584</span><span class="obs-src legacy">持仓·昨晚遗留</span></div><div class="or">78 亿扩产 + 异动公告后，关注周一能否在 MA5/MA10 附近企稳。⚠️ 短期 bias+24% 过热。</div></div>
+  <div class="obs-item"><div class="oh"><span class="on">半导体设备ETF 159558</span><span class="obs-src legacy">持仓·昨晚遗留</span></div><div class="or">拓荆科技收购利好 vs 指标极度过热（RSI 92+）。经典风险组合：利好高开 + 过热区获利了结。<b>已标记观察，按既有纪律线处理，不建议开盘前临时操作。</b></div></div>
+  <div class="obs-item"><div class="oh"><span class="on">利通电子 603629</span><span class="obs-src legacy">自选·昨晚遗留</span></div><div class="or">6/26 跌停后需确认：①是否有基本面利空公告；②能否在 MA20（184）附近缩量止跌。</div></div>
+  <div class="obs-item"><div class="oh"><span class="on">宝丰能源 600989</span><span class="obs-src legacy">自选·昨晚遗留</span></div><div class="or">已跌破年线，RSI/KDJ 超卖。油价大跌（-4%）为短期逆风。<b>当前技术面不支持建仓。</b></div></div>
+  <div class="obs-item"><div class="oh"><span class="on">碳酸锂期货</span><span class="obs-src legacy">昨晚遗留</span></div><div class="or">全周 -9.33%，15 万附近有技术支撑但三季度供应增量压力仍在。</div></div>
+  <div class="obs-item"><div class="oh"><span class="on">中东局势</span><span class="obs-src news">周末新增</span></div><div class="or">美伊军事冲突周末升级。周一关注国际油价反应，可能推升能源/军工板块，利空航运/出口。</div></div>
+  <div class="obs-item"><div class="oh"><span class="on">季末流动性</span><span class="obs-src legacy">昨晚遗留</span></div><div class="or">周一央行隔夜逆回购正式操作，关注资金利率及主力资金流向是否改善。</div></div>
+  <div class="obs-item"><div class="oh"><span class="on">6 月 PMI（周二公布）</span><span class="obs-src sched">今日日程</span></div><div class="or">本周最重要数据。5 月为 50.0 荣枯线。若回升至扩张区间则验证"二季度经济修复"叙事。</div></div>
+  <div class="obs-item"><div class="oh"><span class="on">公募"换尺"风格再平衡</span><span class="obs-src news">隔夜消息</span></div><div class="or">千余只基金调整基准可能促使资金从 AI 抱团回流，风格可能趋向均衡。</div></div>
+  <div class="obs-item"><div class="oh"><span class="on">美股 AI 抛售潮延续性</span><span class="obs-src news">隔夜消息</span></div><div class="or">费城半导体周五 -5.29%，AI 主题短期分歧显著加大。周一亚洲时段关注美股期货走向。</div></div>
+
+  <div class="lt-hint">
+    <b>📌 中长期持仓提示：</b>沪电股份、长电科技、半导体设备ETF 的中长期基本面逻辑（AI 算力需求、国产替代、半导体扩产潮）未被隔夜消息动摇。海外 AI 情绪走弱是短期扰动，按持仓纪律持有观察，不建议因隔夜外盘波动而开盘前临时操作。
+  </div>
+</section>
+
+<!-- ============ ⑪ 页脚 ============ -->
+<footer id="disc">
+  <div class="meta">
+    📅 报告完成时间：2026-06-28（周日）上午 · 数据截止：2026-06-28 上午<br>
+    📡 数据源：本次取数以联网搜索为主。数据结构化数值来源于公开财经媒体报道，精确数字未经专业金融源（Wind MCP）核对。技术参考位完全承接自 6/26 晚间复盘报告，本方不另跑引擎。
+  </div>
+  <div class="disc">
+    <b>⚠️ 重要声明：</b>本报告中的所有支撑/压力/均线价位均为参考位，非下单指令。条件式情景描述的是"若…则可能…"的对称可能性，不构成对涨跌方向的预测。看板为 ashare-morning-brief 报告的视觉化复刻，不新增数据、不做新的分析推导。投资决策请自行判断。<br>
+    <b>📱 移动端看板</b> · 由 ashare-dashboard 基于 morning_brief.html 模板渲染 · 数据源内容可追溯至原始早间推送报告
+  </div>
+</footer>
+
+</body>
+</html>

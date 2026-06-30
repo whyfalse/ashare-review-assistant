@@ -1,0 +1,77 @@
+# ============================================================
+# 定时复盘调度配置示例
+# 使用方法: 复制本文件为 scheduler/config.yaml, 再按实际情况修改。
+# 形如 ${VAR} 的值会被同名环境变量替换(适合放密码/token, 避免明文入库)。
+# ============================================================
+
+# ---------- 时间窗 → 技能映射 ----------
+# run_review.py 启动时按当前本地时间落入哪个窗口, 选出对应技能。
+# 也可用 --skill 参数强制指定, 跳过时间判断。
+# 各窗口为 [start, end) 左闭右开, HH:MM 24小时制。
+windows:
+  - skill: ashare-morning-brief      # 盘前隔夜推送
+    start: "08:00"
+    end:   "09:15"
+    days:  [mon, tue, wed, thu, fri] # 仅这些星期几生效(交易日还会再过滤节假日)
+  - skill: ashare-intraday-review    # 盘中快速检查
+    start: "14:20"
+    end:   "15:00"
+    days:  [mon, tue, wed, thu, fri]
+  - skill: ashare-evening-review     # 盘后晚间复盘
+    start: "17:00"
+    end:   "23:30"
+    days:  [mon, tue, wed, thu, fri]
+  - skill: ashare-weekly-review      # 周日上午深度复盘(全球休市, 不需交易日)
+    start: "09:00"
+    end:   "12:00"
+    days:  [sun]
+    require_trading_day: false       # 周复盘不要求当天是交易日
+
+# 默认所有窗口都要求"当天是A股交易日"才执行, 可在单个窗口用
+# require_trading_day: false 关闭(如周复盘)。
+
+# ---------- 交易日判断 ----------
+trading_day:
+  # akshare: 用 ak.tool_trade_date_hist_sina() 拿沪深交易日历(需 pip install akshare)
+  # weekday: 退化方案, 仅排除周六周日, 不识别法定节假日(会在节假日误发)
+  source: akshare
+  fallback_to_weekday: true          # akshare 不可用时是否退化为仅判断工作日
+
+# ---------- Claude Code 无头调用 ----------
+claude:
+  bin: claude                        # claude 可执行文件, 不在 PATH 时填绝对路径
+  # 触发技能的提示词。{skill} 会被替换为上面选中的技能名。
+  prompt: "请执行 {skill} 技能, 完成本时段的复盘/推送, 直接输出完整的中文报告正文。"
+  # 无头运行需要免确认, 否则会卡在权限提示。技能要联网取行情/读写本地数据,
+  # bypassPermissions 最省心但权限最大; 若想收紧, 改用 default 并配置 allowed_tools。
+  permission_mode: bypassPermissions
+  allowed_tools: []                  # permission_mode 非 bypass 时, 在此列出放行工具
+  model: ""                          # 留空用默认模型, 或填 opus / sonnet 等别名
+  timeout_seconds: 1800              # 单次复盘超时(秒), 超时判失败
+  extra_args: []                     # 透传给 claude 的额外参数, 如 ["--effort","high"]
+
+# ---------- 邮件发送 ----------
+email:
+  enabled: true
+  smtp_host: smtp.example.com
+  smtp_port: 465
+  use_ssl: true                      # 465 用 SSL; 若用 587 STARTTLS, 改为 false
+  username: your_account@example.com
+  password: ${EMAIL_PASSWORD}        # 从环境变量读, 不要把密码写进文件
+  sender: your_account@example.com
+  recipients:
+    - you@example.com
+  subject_prefix: "[A股复盘]"        # 主题前缀, 后接技能名与日期
+  send_on_failure: true              # 复盘失败时是否也发邮件通知(便于发现哑火)
+
+# ---------- 数据看板 ----------
+# 是否在复盘报告生成后, 自动调用 ashare-dashboard 技能将报告渲染为
+# 移动端数据看板 HTML 文件, 并作为邮件正文(HTML 格式)发送。
+# 关闭时按原逻辑发送纯文本邮件。
+dashboard:
+  enabled: true
+
+# ---------- 日志 ----------
+log:
+  dir: scheduler/logs                # 相对项目根目录; 每次运行写一份带时间戳的日志
+  keep_days: 30                      # 超过此天数的日志自动清理

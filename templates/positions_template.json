@@ -1,0 +1,12 @@
+{
+  "_schema_notes": "持仓记录本地模板。仅保留 ticker/name/cost_basis/thesis_summary 四个字段。",
+
+  "positions": [
+    {
+      "ticker": "(待填写,如 600000.SH)",
+      "name": "(待填写)",
+      "cost_basis": null,
+      "thesis_summary": "(待填写——一句话核心持有逻辑,价值投资角度)"
+    }
+  ]
+}

@@ -1,0 +1,160 @@
+{
+  "_schema_notes": "本文件是 ashare-macro-context skill 的本地记忆模板。新建记忆库时以此为骨架,当前框架版本下的类别都应建空位条目,避免遗漏已确立的类别。tier: 1=慢变量(建议90天复核) 2=周期变量(建议30天复核) 3=事件驱动(发生时更新,next_review_due可为null)。summary 只写客观事实陈述,不写买卖判断。entries 存放已确立维度,candidates 存放尚在观察、未转正的候选维度——两者不要混放。\n\n(本文件已迁移至项目根目录 templates/ 下,请使用 ../../../templates/macro_context_template.json 路径。保留此副本仅用于向后兼容。)",
+
+  "framework_version": "v1",
+
+  "candidates": [
+    {
+      "_comment": "示例候选项,实际使用时按需新增/删除。当某新因素无法归入entries里任何现有category时,先记在这里观察,不要急着新建顶层类别。",
+      "candidate_name": "(待填写——新因素名称)",
+      "proposed_category": "(待填写——倾向于归入哪个现有类别的子项,或建议新增独立类别)",
+      "first_noted": null,
+      "rationale": "(待填写——为什么觉得现有类别覆盖不了/为什么值得关注)",
+      "decision_due": null,
+      "status": "pending"
+    }
+  ],
+
+  "entries": [
+    {
+      "category": "A_政治与政策",
+      "dimension": "示例:产业监管政策方向",
+      "tier": 1,
+      "summary": "(待填写——一句话客观陈述当前状态)",
+      "key_indicators": [],
+      "last_updated": null,
+      "next_review_due": null,
+      "history": []
+    },
+    {
+      "category": "B_宏观经济基本面",
+      "dimension": "制造业PMI",
+      "tier": 2,
+      "summary": "(待填写)",
+      "key_indicators": ["制造业PMI", "非制造业PMI"],
+      "last_updated": null,
+      "next_review_due": null,
+      "history": []
+    },
+    {
+      "category": "C_货币与流动性",
+      "dimension": "央行货币政策基调",
+      "tier": 2,
+      "summary": "(待填写)",
+      "key_indicators": ["MLF利率", "LPR", "社融增量", "M1/M2同比"],
+      "last_updated": null,
+      "next_review_due": null,
+      "history": []
+    },
+    {
+      "category": "D_财政政策",
+      "dimension": "财政赤字率与专项债节奏",
+      "tier": 1,
+      "summary": "(待填写)",
+      "key_indicators": ["财政赤字率", "专项债发行规模"],
+      "last_updated": null,
+      "next_review_due": null,
+      "history": []
+    },
+    {
+      "category": "E_汇率与跨境资本",
+      "dimension": "人民币汇率与北向南向中长期趋势",
+      "tier": 2,
+      "summary": "(待填写)",
+      "key_indicators": ["USDCNY中间价", "北向资金中长期净流向趋势"],
+      "last_updated": null,
+      "next_review_due": null,
+      "history": []
+    },
+    {
+      "category": "F_房地产周期",
+      "dimension": "商品房销售与新开工",
+      "tier": 2,
+      "summary": "(待填写)",
+      "key_indicators": ["商品房销售面积同比", "新开工面积同比"],
+      "last_updated": null,
+      "next_review_due": null,
+      "history": []
+    },
+    {
+      "category": "G_通胀与大宗商品",
+      "dimension": "CPI/PPI",
+      "tier": 2,
+      "summary": "(待填写)",
+      "key_indicators": ["CPI同比", "PPI同比"],
+      "last_updated": null,
+      "next_review_due": null,
+      "history": []
+    },
+    {
+      "category": "H_人口与社会结构",
+      "dimension": "老龄化与青年失业率",
+      "tier": 1,
+      "summary": "(待填写)",
+      "key_indicators": ["老龄化率", "青年失业率", "居民储蓄率"],
+      "last_updated": null,
+      "next_review_due": null,
+      "history": []
+    },
+    {
+      "category": "I_国际形势",
+      "dimension": "中美关系-关税政策",
+      "tier": 1,
+      "summary": "(待填写)",
+      "key_indicators": [],
+      "last_updated": null,
+      "next_review_due": null,
+      "history": []
+    },
+    {
+      "category": "I_国际形势",
+      "dimension": "中美关系-科技出口管制",
+      "tier": 1,
+      "summary": "(待填写)",
+      "key_indicators": [],
+      "last_updated": null,
+      "next_review_due": null,
+      "history": []
+    },
+    {
+      "category": "J_资本市场制度政策",
+      "dimension": "IPO与再融资节奏",
+      "tier": 1,
+      "summary": "(待填写)",
+      "key_indicators": [],
+      "last_updated": null,
+      "next_review_due": null,
+      "history": []
+    },
+    {
+      "category": "K_全球主要央行政策",
+      "dimension": "美联储利率决议与美元指数",
+      "tier": 2,
+      "summary": "(待填写)",
+      "key_indicators": ["联邦基金利率", "美元指数DXY"],
+      "last_updated": null,
+      "next_review_due": null,
+      "history": []
+    },
+    {
+      "category": "L_重要会议日历",
+      "dimension": "下一次重要会议/数据发布",
+      "tier": 3,
+      "summary": "(待填写,例如:'下次FOMC会议日期为XX,关注议题为XX')",
+      "key_indicators": [],
+      "last_updated": null,
+      "next_review_due": null,
+      "history": []
+    },
+    {
+      "category": "M_长期产业热点",
+      "dimension": "长期结构性产业趋势(如AI/半导体国产替代等)",
+      "tier": 1,
+      "summary": "(待填写——只记录长期趋势,不记录短期题材炒作)",
+      "key_indicators": [],
+      "last_updated": null,
+      "next_review_due": null,
+      "history": []
+    }
+  ]
+}

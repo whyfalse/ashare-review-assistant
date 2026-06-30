@@ -1,0 +1,21 @@
+# ===== 个人运行时数据 (从 templates/ 初始化, 含持仓/自选股/宏观记忆/复盘报告) =====
+# 保留 data/README.md, 其余个人数据不入库
+data/*
+!data/README.md
+
+# ===== 定时调度: 含密码的配置与个人复盘报告日志 =====
+scheduler/config.yaml
+scheduler/logs/
+
+# ===== Claude Code 本机设置 (含机器相关路径) =====
+.claude/settings.local.json
+
+# ===== 技术面分析: 真实数据源配置 (可能含 tushare token) 与脚本产物 =====
+.claude/skills/ashare-technical-analysis/config/data_source.yaml
+output/
+
+# ===== Python 产物 =====
+__pycache__/
+*.py[cod]
+.venv/
+venv/
