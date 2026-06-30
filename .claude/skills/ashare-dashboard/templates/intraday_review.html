@@ -22,8 +22,13 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
     注释的"缺失时"规则渲染("—"灰显 / "数据缺失"标注 / 整块降级),绝不编造或外推。
   - 盘中特色:① 全程挂"盘中快照"警示;② 技术位互动温度计用条形可视化"现价 vs 昨晚支撑/压力位"
     的位置(上方/下方/逼近/已突破),不现算指标;③ 待办分"收盘前 15 分钟"与"留待晚间"两栏。
-  - 比例条(资金分流 / 板块涨跌 / 距离条)的宽度由文末 <script> 依据 data-val 自动计算,
-    生成时只需把 data-val 改成真实数值即可,无需手算百分比。
+  - 比例条(资金分流 / 板块涨跌 / 温度计距离条)的宽度【必须在生成时预算并内联到 style】,不得依赖 <script>:
+    看板常经邮件发送,邮件客户端会删除 <script> 且不执行 JS,运行时算宽度的条会坍缩失效。
+    两类规则(组内 M = max|v|):
+      ② 中心零轴半幅(资金分流 .fill / 温度计距离条 .fill): S = M×1.15, half = min(50, |v|/S×50);
+         v≥0 → left:50%, width:half%;  v<0 → left:(50-half)%, width:half%
+      ③ 单向归一(板块涨跌 .sec-fill): S = M×1.1, width = |v|/S×100%
+    注意: 温度计距离条按"每张 thermo-card 内"独立归一(组内 M 仅取该卡各条距离的 max|v|)。
   - 纪律保留位:"参考位非下单指令"、"触及纪律线只提示核对不替用户下结论"、短期机会与中长期持仓
     分栏、盘中快照非收盘数据声明、风险提示与免责声明——这些结构在模板里已预留,生成时填入数据源
     原文,不得为版面精简而删改口径。
@@ -361,25 +366,25 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
       <span class="tn">沪电股份</span><span class="tc">002463</span>
       <span class="tp down">139.23</span>
     </div>
-    <!-- 三条距离条: data-val=现价相对参考位的距离百分比(正=上方,负=下方) -->
+    <!-- 距离条: 数值=现价相对参考位的距离百分比(正=上方,负=下方);宽度按本卡内 max|v|×1.15 归一内联到 style -->
     <div class="dist-row">
       <span class="dl">vs 支撑</span>
-      <div class="dr"><div class="zero"></div><div class="fill" data-val="1.33" style="background:var(--warn);"></div></div>
+      <div class="dr"><div class="zero"></div><div class="fill" style="left:50%;width:1.2%;background:var(--warn);"></div></div>
       <span class="dv warn">+1.33% ⚠逼近</span>
     </div>
     <div class="dist-row">
       <span class="dl">vs 压力</span>
-      <div class="dr"><div class="zero"></div><div class="fill" data-val="-10.9" style="background:var(--down);"></div></div>
+      <div class="dr"><div class="zero"></div><div class="fill" style="left:40.3%;width:9.7%;background:var(--down);"></div></div>
       <span class="dv down">−10.9%</span>
     </div>
     <div class="dist-row">
       <span class="dl">距止盈</span>
-      <div class="dr"><div class="zero"></div><div class="fill" data-val="-25.6" style="background:var(--down);"></div></div>
+      <div class="dr"><div class="zero"></div><div class="fill" style="left:27.1%;width:22.9%;background:var(--down);"></div></div>
       <span class="dv down">−25.6%</span>
     </div>
     <div class="dist-row">
       <span class="dl">距止损</span>
-      <div class="dr"><div class="zero"></div><div class="fill" data-val="48.7" style="background:var(--up);"></div></div>
+      <div class="dr"><div class="zero"></div><div class="fill" style="left:50%;width:43.5%;background:var(--up);"></div></div>
       <span class="dv up">+48.7%</span>
     </div>
     <div class="thermo-vol">
@@ -395,22 +400,22 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
     </div>
     <div class="dist-row">
       <span class="dl">vs 支撑</span>
-      <div class="dr"><div class="zero"></div><div class="fill" data-val="9.6" style="background:var(--up);"></div></div>
+      <div class="dr"><div class="zero"></div><div class="fill" style="left:50%;width:6.4%;background:var(--up);"></div></div>
       <span class="dv up">+9.6%</span>
     </div>
     <div class="dist-row">
       <span class="dl">vs 压力</span>
-      <div class="dr"><div class="zero"></div><div class="fill" data-val="-13.6" style="background:var(--down);"></div></div>
+      <div class="dr"><div class="zero"></div><div class="fill" style="left:41.0%;width:9.0%;background:var(--down);"></div></div>
       <span class="dv down">−13.6%</span>
     </div>
     <div class="dist-row">
       <span class="dl">距止盈</span>
-      <div class="dr"><div class="zero"></div><div class="fill" data-val="-17.3" style="background:var(--down);"></div></div>
+      <div class="dr"><div class="zero"></div><div class="fill" style="left:38.5%;width:11.5%;background:var(--down);"></div></div>
       <span class="dv down">−17.3%</span>
     </div>
     <div class="dist-row">
       <span class="dl">距止损</span>
-      <div class="dr"><div class="zero"></div><div class="fill" data-val="65.4" style="background:var(--up);"></div></div>
+      <div class="dr"><div class="zero"></div><div class="fill" style="left:50%;width:43.5%;background:var(--up);"></div></div>
       <span class="dv up">+65.4%</span>
     </div>
     <div class="thermo-vol">
@@ -426,17 +431,17 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
     </div>
     <div class="dist-row">
       <span class="dl">vs 支撑</span>
-      <div class="dr"><div class="zero"></div><div class="fill" data-val="9.6" style="background:var(--up);"></div></div>
+      <div class="dr"><div class="zero"></div><div class="fill" style="left:50%;width:43.5%;background:var(--up);"></div></div>
       <span class="dv up">+9.6%</span>
     </div>
     <div class="dist-row">
       <span class="dl">vs 压力</span>
-      <div class="dr"><div class="zero"></div><div class="fill" data-val="1.09" style="background:var(--strength);"></div></div>
+      <div class="dr"><div class="zero"></div><div class="fill" style="left:50%;width:4.9%;background:var(--strength);"></div></div>
       <span class="dv" style="color:var(--strength);">已突破 ✅</span>
     </div>
     <div class="dist-row">
       <span class="dl">距止盈</span>
-      <div class="dr"><div class="zero"></div><div class="fill" data-val="-6.3" style="background:var(--warn);"></div></div>
+      <div class="dr"><div class="zero"></div><div class="fill" style="left:21.5%;width:28.5%;background:var(--warn);"></div></div>
       <span class="dv warn">−6.3% ⚠逼近</span>
     </div>
     <div class="thermo-vol">
@@ -511,16 +516,16 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
       <span class="tag warn" style="font-size:10.5px;">上午 ~10:26 快照</span>
     </div>
     <div id="flowRows">
-      <div class="flow-row"><span class="fl">制药</span><div class="flow-track"><div class="zero"></div><div class="fill" data-val="62.3" style="background:var(--up);"></div></div><span class="fv up">+62.3亿</span></div>
-      <div class="flow-row"><span class="fl">电脑与外围</span><div class="flow-track"><div class="zero"></div><div class="fill" data-val="34.4" style="background:var(--up);"></div></div><span class="fv up">+34.4亿</span></div>
-      <div class="flow-row"><span class="fl">生命科学</span><div class="flow-track"><div class="zero"></div><div class="fill" data-val="16.5" style="background:var(--up);"></div></div><span class="fv up">+16.5亿</span></div>
-      <div class="flow-row"><span class="fl">生物科技</span><div class="flow-track"><div class="zero"></div><div class="fill" data-val="16.4" style="background:var(--up);"></div></div><span class="fv up">+16.4亿</span></div>
-      <div class="flow-row"><span class="fl">半导体材料设备</span><div class="flow-track"><div class="zero"></div><div class="fill" data-val="13.0" style="background:var(--up);"></div></div><span class="fv up">+13.0亿</span></div>
-      <div class="flow-row"><span class="fl">电子设备</span><div class="flow-track"><div class="zero"></div><div class="fill" data-val="-97.8" style="background:var(--down);"></div></div><span class="fv down">−97.8亿</span></div>
-      <div class="flow-row"><span class="fl">通信设备</span><div class="flow-track"><div class="zero"></div><div class="fill" data-val="-77.6" style="background:var(--down);"></div></div><span class="fv down">−77.6亿</span></div>
-      <div class="flow-row"><span class="fl">多元化工</span><div class="flow-track"><div class="zero"></div><div class="fill" data-val="-14.5" style="background:var(--down);"></div></div><span class="fv down">−14.5亿</span></div>
-      <div class="flow-row"><span class="fl">建材</span><div class="flow-track"><div class="zero"></div><div class="fill" data-val="-13.2" style="background:var(--down);"></div></div><span class="fv down">−13.2亿</span></div>
-      <div class="flow-row"><span class="fl">半导体产品</span><div class="flow-track"><div class="zero"></div><div class="fill" data-val="-10.8" style="background:var(--down);"></div></div><span class="fv down">−10.8亿</span></div>
+      <div class="flow-row"><span class="fl">制药</span><div class="flow-track"><div class="zero"></div><div class="fill" style="left:50%;width:27.7%;background:var(--up);"></div></div><span class="fv up">+62.3亿</span></div>
+      <div class="flow-row"><span class="fl">电脑与外围</span><div class="flow-track"><div class="zero"></div><div class="fill" style="left:50%;width:15.3%;background:var(--up);"></div></div><span class="fv up">+34.4亿</span></div>
+      <div class="flow-row"><span class="fl">生命科学</span><div class="flow-track"><div class="zero"></div><div class="fill" style="left:50%;width:7.3%;background:var(--up);"></div></div><span class="fv up">+16.5亿</span></div>
+      <div class="flow-row"><span class="fl">生物科技</span><div class="flow-track"><div class="zero"></div><div class="fill" style="left:50%;width:7.3%;background:var(--up);"></div></div><span class="fv up">+16.4亿</span></div>
+      <div class="flow-row"><span class="fl">半导体材料设备</span><div class="flow-track"><div class="zero"></div><div class="fill" style="left:50%;width:5.8%;background:var(--up);"></div></div><span class="fv up">+13.0亿</span></div>
+      <div class="flow-row"><span class="fl">电子设备</span><div class="flow-track"><div class="zero"></div><div class="fill" style="left:6.5%;width:43.5%;background:var(--down);"></div></div><span class="fv down">−97.8亿</span></div>
+      <div class="flow-row"><span class="fl">通信设备</span><div class="flow-track"><div class="zero"></div><div class="fill" style="left:15.5%;width:34.5%;background:var(--down);"></div></div><span class="fv down">−77.6亿</span></div>
+      <div class="flow-row"><span class="fl">多元化工</span><div class="flow-track"><div class="zero"></div><div class="fill" style="left:43.6%;width:6.4%;background:var(--down);"></div></div><span class="fv down">−14.5亿</span></div>
+      <div class="flow-row"><span class="fl">建材</span><div class="flow-track"><div class="zero"></div><div class="fill" style="left:44.1%;width:5.9%;background:var(--down);"></div></div><span class="fv down">−13.2亿</span></div>
+      <div class="flow-row"><span class="fl">半导体产品</span><div class="flow-track"><div class="zero"></div><div class="fill" style="left:45.2%;width:4.8%;background:var(--down);"></div></div><span class="fv down">−10.8亿</span></div>
     </div>
     <div class="takeaway" style="margin-top:8px;">资金整体做<b>高低切换</b>：从前期涨幅巨大的算力通信链撤出，一部分流入低位医药消费，另一部分留在科技内部做结构性调仓（设备材料替代产品端）。</div>
   </div>
@@ -529,17 +534,17 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
   <div class="card" style="margin-top:10px;">
     <div style="font-size:13px; font-weight:600; margin-bottom:6px;">板块涨跌 · 半导体内部剧烈分化</div>
     <div id="gainerList">
-      <div class="sec-row"><div class="sec-name">生命科学工具</div><div class="sec-track"><div class="sec-fill" data-val="6.2" style="background:var(--up);"></div></div><div class="sec-val up num">+6.20%</div></div>
-      <div class="sec-row"><div class="sec-name">生物科技</div><div class="sec-track"><div class="sec-fill" data-val="5.89" style="background:var(--up);"></div></div><div class="sec-val up num">+5.89%</div></div>
-      <div class="sec-row"><div class="sec-name">制药</div><div class="sec-track"><div class="sec-fill" data-val="5.62" style="background:var(--up);"></div></div><div class="sec-val up num">+5.62%</div></div>
-      <div class="sec-row"><div class="sec-name">半导体材料设备</div><div class="sec-track"><div class="sec-fill" data-val="1.68" style="background:var(--up);"></div></div><div class="sec-val up num">+1.68%</div></div>
+      <div class="sec-row"><div class="sec-name">生命科学工具</div><div class="sec-track"><div class="sec-fill" style="width:90.9%;background:var(--up);"></div></div><div class="sec-val up num">+6.20%</div></div>
+      <div class="sec-row"><div class="sec-name">生物科技</div><div class="sec-track"><div class="sec-fill" style="width:86.4%;background:var(--up);"></div></div><div class="sec-val up num">+5.89%</div></div>
+      <div class="sec-row"><div class="sec-name">制药</div><div class="sec-track"><div class="sec-fill" style="width:82.4%;background:var(--up);"></div></div><div class="sec-val up num">+5.62%</div></div>
+      <div class="sec-row"><div class="sec-name">半导体材料设备</div><div class="sec-track"><div class="sec-fill" style="width:24.6%;background:var(--up);"></div></div><div class="sec-val up num">+1.68%</div></div>
     </div>
     <div id="loserList" style="margin-top:8px;">
-      <div class="sec-row"><div class="sec-name">建材</div><div class="sec-track"><div class="sec-fill" data-val="-4.58" style="background:var(--down);"></div></div><div class="sec-val down num">−4.58%</div></div>
-      <div class="sec-row"><div class="sec-name">能源设备</div><div class="sec-track"><div class="sec-fill" data-val="-4.30" style="background:var(--down);"></div></div><div class="sec-val down num">−4.30%</div></div>
-      <div class="sec-row"><div class="sec-name">建筑产品</div><div class="sec-track"><div class="sec-fill" data-val="-4.04" style="background:var(--down);"></div></div><div class="sec-val down num">−4.04%</div></div>
-      <div class="sec-row"><div class="sec-name">通信设备</div><div class="sec-track"><div class="sec-fill" data-val="-3.82" style="background:var(--down);"></div></div><div class="sec-val down num">−3.82%</div></div>
-      <div class="sec-row"><div class="sec-name">半导体产品</div><div class="sec-track"><div class="sec-fill" data-val="-0.24" style="background:var(--down);"></div></div><div class="sec-val down num">−0.24%</div></div>
+      <div class="sec-row"><div class="sec-name">建材</div><div class="sec-track"><div class="sec-fill" style="width:90.9%;background:var(--down);"></div></div><div class="sec-val down num">−4.58%</div></div>
+      <div class="sec-row"><div class="sec-name">能源设备</div><div class="sec-track"><div class="sec-fill" style="width:85.4%;background:var(--down);"></div></div><div class="sec-val down num">−4.30%</div></div>
+      <div class="sec-row"><div class="sec-name">建筑产品</div><div class="sec-track"><div class="sec-fill" style="width:80.2%;background:var(--down);"></div></div><div class="sec-val down num">−4.04%</div></div>
+      <div class="sec-row"><div class="sec-name">通信设备</div><div class="sec-track"><div class="sec-fill" style="width:75.8%;background:var(--down);"></div></div><div class="sec-val down num">−3.82%</div></div>
+      <div class="sec-row"><div class="sec-name">半导体产品</div><div class="sec-track"><div class="sec-fill" style="width:4.8%;background:var(--down);"></div></div><div class="sec-val down num">−0.24%</div></div>
     </div>
     <div class="takeaway" style="margin-top:8px;">半导体内部：<b>材料设备 +1.68% vs 产品 −0.24%</b>，"卖铲人 vs 挖矿人"分化继续强化。</div>
   </div>
@@ -650,59 +655,6 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
   </div>
 </footer>
 
-<script>
-/* ========================================================================
-   仅用于"比例条宽度"的纯布局计算 —— 生成时只需更新 data-val 为真实数值,宽度自动重算。
-   不做任何数据生成/外推,不改变文意;文意与数字均来自上方 HTML 占位(由 skill 替换)。
-   ===================================================================== */
-(function(){
-  // 资金流向条:中心零轴,正向往右(红)、负向往左(绿),按组内最大绝对值×1.15 归一到半幅50%
-  var fr = document.getElementById('flowRows');
-  if(fr){
-    var fills = fr.querySelectorAll('.fill[data-val]');
-    var max = 0; fills.forEach(function(f){ max = Math.max(max, Math.abs(parseFloat(f.dataset.val)||0)); });
-    max = max * 1.15;
-    fills.forEach(function(f){
-      var v = parseFloat(f.dataset.val)||0;
-      var half = Math.min(50, Math.abs(v)/max*50);
-      if(v >= 0){ f.style.left = '50%'; f.style.width = half + '%'; }
-      else { f.style.left = (50 - half) + '%'; f.style.width = half + '%'; }
-    });
-  }
-  // 板块涨跌条:每个列表内按最大绝对值×1.1 归一
-  function normList(id){
-    var box = document.getElementById(id);
-    if(!box) return;
-    var rows = box.querySelectorAll('.sec-fill[data-val]');
-    var max = 0; rows.forEach(function(r){ max = Math.max(max, Math.abs(parseFloat(r.dataset.val)||0)); });
-    max = max * 1.1;
-    rows.forEach(function(r){
-      var v = parseFloat(r.dataset.val)||0;
-      r.style.width = (Math.abs(v)/max*100) + '%';
-    });
-  }
-  normList('gainerList'); normList('loserList');
-
-  // 技术位互动温度计距离条:中心零轴,正值向右(上方=红/警示),负值向左(下方=绿)
-  // 按每张温度计卡内最大绝对值×1.15 归一到半幅50%
-  document.querySelectorAll('.thermo-card').forEach(function(card){
-    var rows = card.querySelectorAll('.dist-row');
-    var max = 0;
-    rows.forEach(function(r){
-      var f = r.querySelector('.fill[data-val]');
-      if(f){ max = Math.max(max, Math.abs(parseFloat(f.dataset.val)||0)); }
-    });
-    max = max * 1.15;
-    rows.forEach(function(r){
-      var f = r.querySelector('.fill[data-val]');
-      if(!f) return;
-      var v = parseFloat(f.dataset.val)||0;
-      var half = Math.min(50, Math.abs(v)/max*50);
-      if(v >= 0){ f.style.left = '50%'; f.style.width = half + '%'; }
-      else { f.style.left = (50 - half) + '%'; f.style.width = half + '%'; }
-    });
-  });
-})();
-</script>
+<!-- 比例条宽度已在生成时按顶部注释规则预算并内联到 style;不依赖 <script>(邮件客户端会删除且不执行 JS) -->
 </body>
 </html>

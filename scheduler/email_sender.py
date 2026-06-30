@@ -103,6 +103,32 @@ def inline_css_variables(html: str) -> str:
     return re.sub(r'var\(([^()]*(?:\([^()]*\)[^()]*)*)\)', _resolve, html)
 
 
+# ---------- CSS 修复 ----------
+
+def _sanitize_css(html: str) -> str:
+    """修复 AI 生成 HTML 时可能引入的 CSS 笔误，并补回邮件客户端会丢失的关键样式。
+
+    当前修复：
+    1. scroll-be_hav_ior → scroll-behavior（AI 偶尔把 behavior 拆成 be_hav_ior）
+    2. 若缺少 @media (min-width:480px) 则补回（AI 生成时可能遗漏）
+    """
+    # 1. 修复已知的 CSS 属性名笔误
+    html = html.replace('scroll-be_hav_ior', 'scroll-behavior')
+
+    # 2. 若 @media 块缺失，在 </style> 前补回
+    if '@media' not in html:
+        media_block = (
+            '\n'
+            '  @media (min-width:480px){\n'
+            '    .kpi-row{grid-template-columns:repeat(3,1fr);}\n'
+            '  }\n'
+            '</style>'
+        )
+        html = html.replace('</style>', media_block)
+
+    return html
+
+
 def send_email(
     email_cfg: dict,
     subject: str,
@@ -131,6 +157,16 @@ def send_email(
     if body_type == "html":
         body = inline_css_variables(body)
         log(f"CSS 变量已内联 (var() 剩余: {body.count('var(--')} 处)")
+        had_media = '@media' in body
+        had_corruption = 'scroll-be_hav_ior' in body
+        body = _sanitize_css(body)
+        fixes = []
+        if not had_media:
+            fixes.append('补回@media')
+        if had_corruption:
+            fixes.append('修复scroll-be_hav_ior')
+        if fixes:
+            log(f"CSS 修复: {', '.join(fixes)}")
 
     host = email_cfg["smtp_host"]
     port = int(email_cfg["smtp_port"])

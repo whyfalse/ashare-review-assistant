@@ -20,8 +20,14 @@ data: 总览结论,持仓速览,指数表现,市场情绪涨跌家数,主力资�
     生成时用真实数据源内容逐处替换;架构、分区顺序、样式、纪律措辞位保留不动。
   - 占位规则:数字替换数字、文案替换文案;涨跌方向用 .up/.down + ▲/▼ 双编码;缺失字段按各模块
     注释的"缺失时"规则渲染("—"灰显 / "数据缺失"标注 / 整块降级),绝不编造或外推。
-  - 比例条(涨跌家数 / 板块涨跌 / 资金分流)的宽度由文末 <script> 依据 data-val 自动计算,
-    生成时只需把 data-val 改成真实数值即可,无需手算百分比。
+  - 比例条(涨跌家数 / 板块涨跌 / 资金分流)的宽度【必须在生成时预算并内联到 style】,不得依赖 <script>:
+    看板常经邮件发送,邮件客户端会删除 <script> 且不执行 JS,运行时算宽度的条会坍缩失效。
+    三类规则(组内 M = max|v|):
+      ① 分段比例(涨跌家数三段 span): width = v / Σv × 100%
+      ② 中心零轴半幅(资金分流 .fill): S = M×1.15, half = min(50, |v|/S×50);
+         v≥0 → left:50%, width:half%;  v<0 → left:(50-half)%, width:half%
+      ③ 单向归一(板块涨跌 .sec-fill): S = M×1.1, width = |v|/S×100%
+    示例(占位): 涨789/平62/跌4674 → 14.3%/1.1%/84.6%; 资金 -1225(M=1225,S=1407.5) → left:6.5%, width:43.5%
   - 纪律保留位:对称情景双向 + "参考位非下单指令"、短期机会与中长期持仓分栏、风险提示与免责声明,
     这些结构在模板里已预留,生成时填入数据源原文,不得为版面精简而删改口径。
 -->
@@ -306,9 +312,9 @@ data: 总览结论,持仓速览,指数表现,市场情绪涨跌家数,主力资�
   <div class="breadth">
     <div class="bl"><span>涨跌家数 · 涨停 60 / 跌停 30</span><span>全市场成交 3.58 万亿（缩量 436 亿）</span></div>
     <div class="breadth-bar" id="breadthBar">
-      <span data-val="789" style="background:var(--up);">789</span>
-      <span data-val="62"  style="background:var(--flat);"></span>
-      <span data-val="4674" style="background:var(--down);">4,674</span>
+      <span style="width:14.3%;background:var(--up);">789</span>
+      <span style="width:1.1%;background:var(--flat);"></span>
+      <span style="width:84.6%;background:var(--down);">4,674</span>
     </div>
   </div>
 
@@ -385,16 +391,16 @@ data: 总览结论,持仓速览,指数表现,市场情绪涨跌家数,主力资�
     </div>
     <div class="flow-rows" id="flowRows">
       <div class="flow-row"><div class="fl">超大单</div>
-        <div class="flow-track"><div class="zero"></div><div class="fill" data-val="-1225" style="background:var(--down);"></div></div>
+        <div class="flow-track"><div class="zero"></div><div class="fill" style="left:6.5%;width:43.5%;background:var(--down);"></div></div>
         <div class="flow-val down num">-1,225亿</div></div>
       <div class="flow-row"><div class="fl">大单</div>
-        <div class="flow-track"><div class="zero"></div><div class="fill" data-val="-514" style="background:var(--down);"></div></div>
+        <div class="flow-track"><div class="zero"></div><div class="fill" style="left:31.7%;width:18.3%;background:var(--down);"></div></div>
         <div class="flow-val down num">-514亿</div></div>
       <div class="flow-row"><div class="fl">中单</div>
-        <div class="flow-track"><div class="zero"></div><div class="fill" data-val="555" style="background:var(--up);"></div></div>
+        <div class="flow-track"><div class="zero"></div><div class="fill" style="left:50%;width:19.7%;background:var(--up);"></div></div>
         <div class="flow-val up num">+555亿</div></div>
       <div class="flow-row"><div class="fl">小单</div>
-        <div class="flow-track"><div class="zero"></div><div class="fill" data-val="1184" style="background:var(--up);"></div></div>
+        <div class="flow-track"><div class="zero"></div><div class="fill" style="left:50%;width:42.1%;background:var(--up);"></div></div>
         <div class="flow-val up num">+1,184亿</div></div>
     </div>
     <div class="flow-note">
@@ -408,7 +414,7 @@ data: 总览结论,持仓速览,指数表现,市场情绪涨跌家数,主力资�
 <!--
   模块: 领涨/领跌板块
   数据: 报告"领涨板块""领跌板块"表
-  形式: 两栏卡片(移动端上下堆叠),横向条形+涨跌幅+领涨股/特征小字; 条宽由 data-val 按1.1倍最大值归一
+  形式: 两栏卡片(移动端上下堆叠),横向条形+涨跌幅+领涨股/特征小字; 条宽按组内1.1倍最大值归一(生成时内联到 style)
   缺失时: 板块涨幅缺失→该行条形隐藏、数值"—"灰显; 整组缺失→该卡片标"本次未提供板块数据"
 -->
 <section class="sec">
@@ -417,24 +423,24 @@ data: 总览结论,持仓速览,指数表现,市场情绪涨跌家数,主力资�
   <div class="card">
     <div class="sec-panel-h"><span class="sw" style="background:var(--up);"></span>领涨板块</div>
     <div id="gainerList">
-      <div class="sec-row"><div class="sec-name">橡胶助剂<small>彤程新材 +10.00%</small></div><div class="sec-track"><div class="sec-fill" data-val="5.41" style="background:var(--up);"></div></div><div class="sec-val up num">+5.41%</div></div>
-      <div class="sec-row"><div class="sec-name">有机硅<small>晨光新材 +10.02%</small></div><div class="sec-track"><div class="sec-fill" data-val="4.72" style="background:var(--up);"></div></div><div class="sec-val up num">+4.72%</div></div>
-      <div class="sec-row"><div class="sec-name">硅料硅片<small>双良节能 +10.00%</small></div><div class="sec-track"><div class="sec-fill" data-val="4.28" style="background:var(--up);"></div></div><div class="sec-val up num">+4.28%</div></div>
-      <div class="sec-row"><div class="sec-name">航天装备<small>中国卫星 +10.00%</small></div><div class="sec-track"><div class="sec-fill" data-val="4.25" style="background:var(--up);"></div></div><div class="sec-val up num">+4.25%</div></div>
-      <div class="sec-row"><div class="sec-name">半导体材料<small>康强电子 +10.01%</small></div><div class="sec-track"><div class="sec-fill" data-val="3.76" style="background:var(--up);"></div></div><div class="sec-val up num">+3.76%</div></div>
-      <div class="sec-row"><div class="sec-name">半导体设备<small>富创精密 +20.00%</small></div><div class="sec-track"><div class="sec-fill" data-val="2.57" style="background:var(--up);"></div></div><div class="sec-val up num">+2.57%</div></div>
-      <div class="sec-row"><div class="sec-name">生猪养殖<small>神农集团 +10.02%</small></div><div class="sec-track"><div class="sec-fill" data-val="1.80" style="background:var(--up);"></div></div><div class="sec-val up num">+1.80%</div></div>
+      <div class="sec-row"><div class="sec-name">橡胶助剂<small>彤程新材 +10.00%</small></div><div class="sec-track"><div class="sec-fill" style="width:90.9%;background:var(--up);"></div></div><div class="sec-val up num">+5.41%</div></div>
+      <div class="sec-row"><div class="sec-name">有机硅<small>晨光新材 +10.02%</small></div><div class="sec-track"><div class="sec-fill" style="width:79.3%;background:var(--up);"></div></div><div class="sec-val up num">+4.72%</div></div>
+      <div class="sec-row"><div class="sec-name">硅料硅片<small>双良节能 +10.00%</small></div><div class="sec-track"><div class="sec-fill" style="width:71.9%;background:var(--up);"></div></div><div class="sec-val up num">+4.28%</div></div>
+      <div class="sec-row"><div class="sec-name">航天装备<small>中国卫星 +10.00%</small></div><div class="sec-track"><div class="sec-fill" style="width:71.4%;background:var(--up);"></div></div><div class="sec-val up num">+4.25%</div></div>
+      <div class="sec-row"><div class="sec-name">半导体材料<small>康强电子 +10.01%</small></div><div class="sec-track"><div class="sec-fill" style="width:63.2%;background:var(--up);"></div></div><div class="sec-val up num">+3.76%</div></div>
+      <div class="sec-row"><div class="sec-name">半导体设备<small>富创精密 +20.00%</small></div><div class="sec-track"><div class="sec-fill" style="width:43.2%;background:var(--up);"></div></div><div class="sec-val up num">+2.57%</div></div>
+      <div class="sec-row"><div class="sec-name">生猪养殖<small>神农集团 +10.02%</small></div><div class="sec-track"><div class="sec-fill" style="width:30.2%;background:var(--up);"></div></div><div class="sec-val up num">+1.80%</div></div>
     </div>
   </div>
   <div class="card">
     <div class="sec-panel-h"><span class="sw" style="background:var(--down);"></span>领跌板块</div>
     <div id="loserList">
-      <div class="sec-row"><div class="sec-name">锂<small>0 涨 8 跌，全军覆没</small></div><div class="sec-track"><div class="sec-fill" data-val="-8.28" style="background:var(--down);"></div></div><div class="sec-val down num">-8.28%</div></div>
-      <div class="sec-row"><div class="sec-name">通信线缆及配套<small>0 涨 13 跌</small></div><div class="sec-track"><div class="sec-fill" data-val="-8.08" style="background:var(--down);"></div></div><div class="sec-val down num">-8.08%</div></div>
-      <div class="sec-row"><div class="sec-name">能源金属<small>0 涨 11 跌</small></div><div class="sec-track"><div class="sec-fill" data-val="-7.81" style="background:var(--down);"></div></div><div class="sec-val down num">-7.81%</div></div>
-      <div class="sec-row"><div class="sec-name">期货<small>0 涨 4 跌</small></div><div class="sec-track"><div class="sec-fill" data-val="-6.95" style="background:var(--down);"></div></div><div class="sec-val down num">-6.95%</div></div>
-      <div class="sec-row"><div class="sec-name">金融信息服务<small>0 涨 3 跌</small></div><div class="sec-track"><div class="sec-fill" data-val="-6.69" style="background:var(--down);"></div></div><div class="sec-val down num">-6.69%</div></div>
-      <div class="sec-row"><div class="sec-name">电池化学品<small>2 涨 41 跌</small></div><div class="sec-track"><div class="sec-fill" data-val="-6.40" style="background:var(--down);"></div></div><div class="sec-val down num">-6.40%</div></div>
+      <div class="sec-row"><div class="sec-name">锂<small>0 涨 8 跌，全军覆没</small></div><div class="sec-track"><div class="sec-fill" style="width:90.9%;background:var(--down);"></div></div><div class="sec-val down num">-8.28%</div></div>
+      <div class="sec-row"><div class="sec-name">通信线缆及配套<small>0 涨 13 跌</small></div><div class="sec-track"><div class="sec-fill" style="width:88.7%;background:var(--down);"></div></div><div class="sec-val down num">-8.08%</div></div>
+      <div class="sec-row"><div class="sec-name">能源金属<small>0 涨 11 跌</small></div><div class="sec-track"><div class="sec-fill" style="width:85.7%;background:var(--down);"></div></div><div class="sec-val down num">-7.81%</div></div>
+      <div class="sec-row"><div class="sec-name">期货<small>0 涨 4 跌</small></div><div class="sec-track"><div class="sec-fill" style="width:76.3%;background:var(--down);"></div></div><div class="sec-val down num">-6.95%</div></div>
+      <div class="sec-row"><div class="sec-name">金融信息服务<small>0 涨 3 跌</small></div><div class="sec-track"><div class="sec-fill" style="width:73.4%;background:var(--down);"></div></div><div class="sec-val down num">-6.69%</div></div>
+      <div class="sec-row"><div class="sec-name">电池化学品<small>2 涨 41 跌</small></div><div class="sec-track"><div class="sec-fill" style="width:70.3%;background:var(--down);"></div></div><div class="sec-val down num">-6.40%</div></div>
     </div>
   </div>
 </section>
@@ -1080,49 +1086,6 @@ data: 总览结论,持仓速览,指数表现,市场情绪涨跌家数,主力资�
   </div>
 </footer>
 
-<script>
-/* ========================================================================
-   仅用于"比例条宽度"的纯布局计算 —— 生成时只需更新 data-val 为真实数值,宽度自动重算。
-   不做任何数据生成/外推,不改变文意;文意与数字均来自上方 HTML 占位(由 skill 替换)。
-   ===================================================================== */
-(function(){
-  // 涨跌家数占比条:三段按 data-val(家数) 归一到 100%
-  var bb = document.getElementById('breadthBar');
-  if(bb){
-    var segs = bb.querySelectorAll('span[data-val]');
-    var total = 0; segs.forEach(function(s){ total += parseFloat(s.dataset.val)||0; });
-    if(total>0){ segs.forEach(function(s){
-      var v = parseFloat(s.dataset.val)||0;
-      s.style.width = (v/total*100) + '%';
-    }); }
-  }
-  // 资金分流条:中心零轴,正向往右(红)、负向往左(绿),按组内最大绝对值×1.15 归一到半幅50%
-  var fr = document.getElementById('flowRows');
-  if(fr){
-    var fills = fr.querySelectorAll('.fill[data-val]');
-    var max = 0; fills.forEach(function(f){ max = Math.max(max, Math.abs(parseFloat(f.dataset.val)||0)); });
-    max = max * 1.15;
-    fills.forEach(function(f){
-      var v = parseFloat(f.dataset.val)||0;
-      var half = Math.min(50, Math.abs(v)/max*50);
-      if(v >= 0){ f.style.left = '50%'; f.style.width = half + '%'; }
-      else { f.style.left = (50 - half) + '%'; f.style.width = half + '%'; }
-    });
-  }
-  // 板块涨跌条:每个列表内按最大绝对值×1.1 归一
-  function normList(id){
-    var box = document.getElementById(id);
-    if(!box) return;
-    var rows = box.querySelectorAll('.sec-fill[data-val]');
-    var max = 0; rows.forEach(function(r){ max = Math.max(max, Math.abs(parseFloat(r.dataset.val)||0)); });
-    max = max * 1.1;
-    rows.forEach(function(r){
-      var v = parseFloat(r.dataset.val)||0;
-      r.style.width = (Math.abs(v)/max*100) + '%';
-    });
-  }
-  normList('gainerList'); normList('loserList');
-})();
-</script>
+<!-- 比例条宽度已在生成时按顶部注释规则预算并内联到 style;不依赖 <script>(邮件客户端会删除且不执行 JS) -->
 </body>
 </html>

@@ -20,8 +20,10 @@ data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市�
     生成时用真实数据源内容逐处替换;架构、分区顺序、样式、纪律措辞位保留不动。
   - 占位规则:数字替换数字、文案替换文案;涨跌方向用 .up/.down + ▲/▼ 双编码;缺失字段按各模块
     注释的"缺失时"规则渲染("—"灰显 / "数据缺失"标注 / "定性推断"标注 / 整块降级),绝不编造或外推。
-  - 分化条(指数周涨跌)与资金分流条由文末 <script> 依据 data-val 自动计算宽度,
-    生成时只需把 data-val 改成真实数值即可,无需手算百分比。
+  - 分化条(指数周涨跌)与资金分流条的宽度【必须在生成时预算并内联到 style】,不得依赖 <script>:
+    看板常经邮件发送,邮件客户端会删除 <script> 且不执行 JS,运行时算宽度的条会坍缩失效。
+    规则(组内 M = max|v|): 中心零轴半幅(.diverge-fill / 资金分流 .fill): S = M×1.15, half = min(50, |v|/S×50);
+      v≥0 → left:50%, width:half%;  v<0 → left:(50-half)%, width:half%
   - 纪律保留位:对称情景双向 + "参考位非下单指令"、短期机会与中长期持仓分栏、
     VIX定性推断标注、下周事件预告"只标注不预测"、风险提示与免责声明——
     这些结构在模板里已预留,生成时填入数据源原文,不得为版面精简而删改口径。
@@ -302,19 +304,19 @@ data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市�
     <div class="hl">五指数周涨跌 · 分化一览</div>
     <div id="divergeBar">
       <div class="diverge-row"><div class="diverge-name">上证<small>-3.26%</small></div>
-        <div class="diverge-track"><div class="zero"></div><div class="fill" data-val="-3.26" style="background:var(--down);"></div></div>
+        <div class="diverge-track"><div class="zero"></div><div class="fill" style="left:16.9%;width:33.1%;background:var(--down);"></div></div>
         <div class="diverge-val down">▼3.26%</div></div>
       <div class="diverge-row"><div class="diverge-name">深证<small>-3.60%</small></div>
-        <div class="diverge-track"><div class="zero"></div><div class="fill" data-val="-3.60" style="background:var(--down);"></div></div>
+        <div class="diverge-track"><div class="zero"></div><div class="fill" style="left:13.4%;width:36.6%;background:var(--down);"></div></div>
         <div class="diverge-val down">▼3.60%</div></div>
       <div class="diverge-row"><div class="diverge-name">创业板<small>-3.79%</small></div>
-        <div class="diverge-track"><div class="zero"></div><div class="fill" data-val="-3.79" style="background:var(--down);"></div></div>
+        <div class="diverge-track"><div class="zero"></div><div class="fill" style="left:11.5%;width:38.5%;background:var(--down);"></div></div>
         <div class="diverge-val down">▼3.79%</div></div>
       <div class="diverge-row"><div class="diverge-name">沪深300<small>-3.78%</small></div>
-        <div class="diverge-track"><div class="zero"></div><div class="fill" data-val="-3.78" style="background:var(--down);"></div></div>
+        <div class="diverge-track"><div class="zero"></div><div class="fill" style="left:11.6%;width:38.4%;background:var(--down);"></div></div>
         <div class="diverge-val down">▼3.78%</div></div>
       <div class="diverge-row"><div class="diverge-name">科创50<small>+4.28%</small></div>
-        <div class="diverge-track"><div class="zero"></div><div class="fill" data-val="4.28" style="background:var(--up);"></div></div>
+        <div class="diverge-track"><div class="zero"></div><div class="fill" style="left:50%;width:43.5%;background:var(--up);"></div></div>
         <div class="diverge-val up">▲4.28%</div></div>
     </div>
   </div>
@@ -407,16 +409,16 @@ data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市�
     </div>
     <div class="flow-rows" id="flowRows">
       <div class="flow-row"><div class="fl">超大单</div>
-        <div class="flow-track"><div class="zero"></div><div class="fill" data-val="-1225" style="background:var(--down);"></div></div>
+        <div class="flow-track"><div class="zero"></div><div class="fill" style="left:6.5%;width:43.5%;background:var(--down);"></div></div>
         <div class="flow-val down num">-1,225亿</div></div>
       <div class="flow-row"><div class="fl">大单</div>
-        <div class="flow-track"><div class="zero"></div><div class="fill" data-val="-514" style="background:var(--down);"></div></div>
+        <div class="flow-track"><div class="zero"></div><div class="fill" style="left:31.7%;width:18.3%;background:var(--down);"></div></div>
         <div class="flow-val down num">-514亿</div></div>
       <div class="flow-row"><div class="fl">中单</div>
-        <div class="flow-track"><div class="zero"></div><div class="fill" data-val="555" style="background:var(--up);"></div></div>
+        <div class="flow-track"><div class="zero"></div><div class="fill" style="left:50%;width:19.7%;background:var(--up);"></div></div>
         <div class="flow-val up num">+555亿</div></div>
       <div class="flow-row"><div class="fl">小单</div>
-        <div class="flow-track"><div class="zero"></div><div class="fill" data-val="1184" style="background:var(--up);"></div></div>
+        <div class="flow-track"><div class="zero"></div><div class="fill" style="left:50%;width:42.1%;background:var(--up);"></div></div>
         <div class="flow-val up num">+1,184亿</div></div>
     </div>
     <div class="flow-note">
@@ -429,7 +431,7 @@ data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市�
     <div class="sec-eye" style="margin-bottom:8px;">market sentiment · 涨跌停周度</div>
     <div class="flow-row" style="grid-template-columns:56px 1fr 86px;">
       <div class="fl">周四</div>
-      <div class="flow-track"><div class="zero"></div><div class="fill" data-val="95" style="left:50%;width:0;background:var(--up);"></div></div>
+      <div class="flow-track"><div class="zero"></div><div class="fill" style="left:50%;width:0;background:var(--up);"></div></div>
       <div class="flow-val up num">涨停 95</div>
     </div>
     <div class="takeaway" style="margin-top:4px;">周四涨停 95 / 跌停 91（科技成长追棒 vs ST/传统周期出逃极度分化）→ 周五涨停 60 / 跌停 30，仅 <b>14.3%</b> 个股上涨，演变为"多杀多普跌"。</div>
@@ -945,39 +947,6 @@ data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市�
   </div>
 </footer>
 
-<script>
-/* ========================================================================
-   仅用于"比例条宽度"的纯布局计算 —— 生成时只需更新 data-val 为真实数值,宽度自动重算。
-   不做任何数据生成/外推,不改变文意;文意与数字均来自上方 HTML 占位(由 skill 替换)。
-   ===================================================================== */
-(function(){
-  // 分化条(指数周涨跌): 中心零轴,正向往右(红)、负向往左(绿),按组内最大绝对值×1.15 归一到半幅50%
-  var db = document.getElementById('divergeBar');
-  if(db){
-    var fills = db.querySelectorAll('.diverge-fill[data-val]');
-    var max = 0; fills.forEach(function(f){ max = Math.max(max, Math.abs(parseFloat(f.dataset.val)||0)); });
-    max = max * 1.15;
-    fills.forEach(function(f){
-      var v = parseFloat(f.dataset.val)||0;
-      var half = Math.min(50, Math.abs(v)/max*50);
-      if(v >= 0){ f.style.left = '50%'; f.style.width = half + '%'; }
-      else { f.style.left = (50 - half) + '%'; f.style.width = half + '%'; }
-    });
-  }
-  // 资金分流条: 中心零轴,正向往右(红)、负向往左(绿),按组内最大绝对值×1.15 归一到半幅50%
-  var fr = document.getElementById('flowRows');
-  if(fr){
-    var fills2 = fr.querySelectorAll('.fill[data-val]');
-    var max2 = 0; fills2.forEach(function(f){ max2 = Math.max(max2, Math.abs(parseFloat(f.dataset.val)||0)); });
-    max2 = max2 * 1.15;
-    fills2.forEach(function(f){
-      var v = parseFloat(f.dataset.val)||0;
-      var half = Math.min(50, Math.abs(v)/max2*50);
-      if(v >= 0){ f.style.left = '50%'; f.style.width = half + '%'; }
-      else { f.style.left = (50 - half) + '%'; f.style.width = half + '%'; }
-    });
-  }
-})();
-</script>
+<!-- 比例条宽度已在生成时按顶部注释规则预算并内联到 style;不依赖 <script>(邮件客户端会删除且不执行 JS) -->
 </body>
 </html>
