@@ -96,46 +96,33 @@ def pick_window(windows: list, now: dt.datetime):
 
 # ---------- 交易日判断 ----------
 def is_trading_day(now: dt.datetime, cfg: dict) -> bool:
-    """优先用 akshare 交易日历; 不可用时按配置退化为仅判断工作日。"""
-    tcfg = cfg.get("trading_day", {}) or {}
-    source = tcfg.get("source", "akshare")
+    """工作日判断: 排除周六周日。注意: 不识别法定节假日(会在节假日误发)。"""
     today = now.date()
-
-    if source == "akshare":
-        try:
-            import akshare as ak
-            df = ak.tool_trade_date_hist_sina()
-            # 该接口返回一列 trade_date(datetime.date 或可解析字符串)
-            dates = set()
-            for v in df["trade_date"].tolist():
-                if isinstance(v, dt.date):
-                    dates.add(v)
-                else:
-                    dates.add(dt.date.fromisoformat(str(v)[:10]))
-            result = today in dates
-            log(f"交易日历(akshare): {today} -> {'交易日' if result else '非交易日'}")
-            return result
-        except Exception as e:
-            log(f"akshare 交易日历不可用: {e}")
-            if not tcfg.get("fallback_to_weekday", True):
-                raise SystemExit("交易日历获取失败且未允许退化判断, 中止。")
-            log("退化为仅判断工作日(无法识别法定节假日!)")
-
-    # weekday 退化方案 / 显式配置 source: weekday
     result = now.weekday() < 5
     log(f"工作日判断: {today} 周{now.weekday()+1} -> {'工作日' if result else '周末'}")
     return result
 
 
-# ---------- 调用 claude 无头执行技能 ----------
+# ---------- 调用 claude 无头执行技能(通过 review-orchestrator agent 编排) ----------
 def run_skill(skill: str, cfg: dict, dashboard_enabled: bool = False) -> str:
-    """以无头模式调用 claude 执行技能, 返回报告正文; 失败抛 RuntimeError。"""
+    """通过 review-orchestrator agent 调用 claude 执行技能, 返回报告正文; 失败抛 RuntimeError。
+
+    review-orchestrator 相比直接调 Skill 多了两层自动接力:
+      1. 复盘后自动检查宏观更新队列, 有新事件则调用 ashare-macro-context 消费落库
+      2. (周复盘时) 自动触发 ashare-macro-context 完整维护模式
+    """
     ccfg = cfg.get("claude", {}) or {}
-    prompt = ccfg.get("prompt", "请执行 {skill} 技能并输出完整中文报告。").format(skill=skill)
+    if ccfg.get("prompt"):
+        prompt = ccfg["prompt"].format(skill=skill)
+    else:
+        prompt = (
+            f"请通过 review-orchestrator agent 执行 {skill} 技能。"
+            f"要求：输出完整中文报告，自动接力宏观记忆更新"
+        )
     if dashboard_enabled:
         prompt += (
-            " 报告完成后, 调用 ashare-dashboard 技能, "
-            "将上述报告内容渲染为移动端数据看板 HTML 文件, 保存到 output/ashare-dashboard/ 目录。"
+            "，并调用 ashare-dashboard 将上述报告渲染为移动端数据看板 HTML 文件，"
+            "保存到 output/ashare-dashboard/ 目录。"
         )
 
     # Windows 上 npm 全局安装的 claude 是 claude.cmd 垫片; subprocess 不带 shell=True

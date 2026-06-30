@@ -32,16 +32,15 @@ windows:
 
 # ---------- 交易日判断 ----------
 trading_day:
-  # akshare: 用 ak.tool_trade_date_hist_sina() 拿沪深交易日历(需 pip install akshare)
-  # weekday: 退化方案, 仅排除周六周日, 不识别法定节假日(会在节假日误发)
-  source: akshare
-  fallback_to_weekday: true          # akshare 不可用时是否退化为仅判断工作日
+  # weekday: 仅排除周六周日, 不识别法定节假日(会在节假日误发)
+  source: weekday
 
 # ---------- Claude Code 无头调用 ----------
 claude:
   bin: claude                        # claude 可执行文件, 不在 PATH 时填绝对路径
   # 触发技能的提示词。{skill} 会被替换为上面选中的技能名。
-  prompt: "请执行 {skill} 技能, 完成本时段的复盘/推送, 直接输出完整的中文报告正文。"
+  # 留空则走默认: 通过 review-orchestrator agent 编排(含宏观记忆自动接力 + 看板生成)。
+  # prompt: ""
   # 无头运行需要免确认, 否则会卡在权限提示。技能要联网取行情/读写本地数据,
   # bypassPermissions 最省心但权限最大; 若想收紧, 改用 default 并配置 allowed_tools。
   permission_mode: bypassPermissions

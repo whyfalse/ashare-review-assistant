@@ -8,12 +8,12 @@
 
 ### 手动配置的条件
 
-- 本地具备联网搜索或财经数据获取能力（MCP 或 API，例如 wind、akshare、东方财富choice），建议使用 MCP 服务
+- 本地具备联网搜索或财经数据获取能力（MCP 或 API，例如 wind、东方财富choice），建议使用 MCP 服务
 
 ### 可以自行处理的条件
 
 - python 3 环境
-- Python 依赖：`pyyaml`（定时调度必需）、`akshare`（可选，用于交易日历判断与技术面分析）
+- Python 依赖：`pyyaml`（定时调度必需）
 
 ## 可选条件
 

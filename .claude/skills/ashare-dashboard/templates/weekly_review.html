@@ -450,7 +450,7 @@ data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市�
 
   <div class="infer-card">
     <div class="ih">⚠️ 精确值未能从可用专业源取得 <span class="tag warn">定性推断</span></div>
-    <div class="id">Wind 本次不可调用、akshare 无 CBOE VIX 接口、联网搜索无返回。以下为基于本周全球 risk-off 收敛证据的<b>方向推断</b>，已如实标注，非精确读数。</div>
+    <div class="id">Wind 本次不可调用、联网搜索无返回。以下为基于本周全球 risk-off 收敛证据的<b>方向推断</b>，已如实标注，非精确读数。</div>
 
     <div class="sec-eye" style="margin:12px 0 5px;">方向推断：上行 ↑</div>
     <div class="id">周均值 likely 从平稳区间（15-25）上沿抬升、周末接近或触及恐慌区间（&gt;25）边缘。</div>
@@ -939,9 +939,9 @@ data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市�
 
 <!-- ============ 页脚：数据源说明 + 免责声明 ============ -->
 <footer id="disc">
-  <div class="meta">报告完成时间：2026-06-28（周日上午） · 数据截止：2026-06-26 收盘<br>数据源：本地 akshare + compute_indicators.py（周度中期视角，无 Wind MCP 核对）；美股指数来自 akshare index_us_stock_sina（专业源）；消息面来自本周两份晚间复盘 + 宏观记忆校准</div>
+  <div class="meta">报告完成时间：2026-06-28（周日上午） · 数据截止：2026-06-26 收盘<br>数据源：compute_indicators.py（周度中期视角，无 Wind MCP 核对）；消息面来自本周两份晚间复盘 + 宏观记忆校准</div>
   <div class="disc">
-    <b>⚠️ 重要声明：</b>本报告技术指标由本地 akshare + compute_indicators.py 计算（无 Wind MCP 核对），口径取周度中期视角。<b>VIX 精确值未能从可用专业源取得，为基于全球 risk-off 收敛证据的定性推断</b>。所有均线/支撑/压力价位均为参考位，<b>非下单指令</b>。条件式情景为"若…则…"对称可能性，<b>不构成对下周涨跌方向的预测</b>。短期机会与中长期持仓分栏呈现、口径不混用。持仓 buy_date/position_pct/纪律线均为 null，持有期窗口与纪律线核对无法进行，建议补录。中长期持仓最低持有 5 个交易日纪律不受单一消息影响。投资决策请自行判断。
+    <b>⚠️ 重要声明：</b>本报告技术指标由 compute_indicators.py 计算（无 Wind MCP 核对），口径取周度中期视角。<b>VIX 精确值未能从可用专业源取得，为基于全球 risk-off 收敛证据的定性推断</b>。所有均线/支撑/压力价位均为参考位，<b>非下单指令</b>。条件式情景为"若…则…"对称可能性，<b>不构成对下周涨跌方向的预测</b>。短期机会与中长期持仓分栏呈现、口径不混用。持仓 buy_date/position_pct/纪律线均为 null，持有期窗口与纪律线核对无法进行，建议补录。中长期持仓最低持有 5 个交易日纪律不受单一消息影响。投资决策请自行判断。
   </div>
 </footer>
 
