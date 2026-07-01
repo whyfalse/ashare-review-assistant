@@ -676,14 +676,13 @@ data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市�
 <!-- ============ ⑦ 自选股复盘(中长期持仓/自选栏) ============ -->
 <!--
   模块: 自选股复盘
-  数据: 报告"自选股复盘"逐只(是否触及预设买点 / 买点条件是否需要更新 / 技术面参考 / 结论)
-  形式: 每只一个 <details>: 摘要=代码名称+本周涨跌 / 展开体=买点核对+条件更新建议+技术面参考+结论
-  缺失时: target_buy_condition 待填写→买点核对块标"待填写,无法核对"并提示补录; 技术面缺失→灰显; 自选无→空态卡片
+  数据: 报告"自选股复盘"逐只(技术面参考 / 跟踪判断是否需要调整 / 结论)
+  形式: 每只一个 <details>: 摘要=代码名称+本周涨跌 / 展开体=技术面参考+跟踪判断+结论
+  缺失时: 技术面缺失→灰显; 自选无→空态卡片
 -->
 <section class="sec">
   <div class="sec-eye">watchlist · 自选股复盘</div>
-  <div class="sec-title">自选股复盘 <span class="sub">预设买点核对 · 条件是否需更新</span></div>
-  <div class="takeaway" style="margin-bottom:10px;">自选股 603629、600989 的 target_buy_condition 均为"(待填写)"，买点条件未设定，无法核对是否触及，建议补录。</div>
+  <div class="sec-title">自选股复盘 <span class="sub">异动跟踪 · 技术面参考</span></div>
 
   <!-- 603629 利通电子 -->
   <details>
@@ -694,19 +693,15 @@ data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市�
     </summary>
     <div class="hold-body">
       <div class="dim-block">
-        <div class="dim-label"><span class="ix">01</span>是否触及预设买点</div>
-        <div class="disc-box muted">target_buy_condition 待填写，无法核对。</div>
-      </div>
-      <div class="dim-block">
-        <div class="dim-label"><span class="ix">02</span>技术面参考</div>
+        <div class="dim-label"><span class="ix">01</span>技术面参考</div>
         <div class="dim-text">周一涨停（+10%）、周三 +8.45% 冲高至 219 元，周四 -5.08%、周五跌停 -10.00% 收 187.09。现价 187 vs MA20(184.14)——刚好逼近 MA20。alpha_20d=<b class="down">-14.03%</b>（近期已转负、跑输沪深300），alpha_60d=<b class="up">+182.03%</b>（中长期极强——"近期在还前期的债"）。MA 多头排列、price_vs_ma250=above，ADX=35.71；OBV 20 日 down。</div>
       </div>
       <div class="dim-block">
-        <div class="dim-label"><span class="ix">03</span>买点条件是否需要更新</div>
-        <div class="dim-text">当前条件空缺。鉴于前期涨幅巨大（MA250 仅 59 元 vs 峰值约 240 元、涨超 300%）、20 日 alpha 已转负、周五缩量跌停，<b>不建议临时放宽标准追涨</b>。待基本面利空排除 + 缩量企稳于 MA20 后再评估。</div>
+        <div class="dim-label"><span class="ix">02</span>跟踪判断</div>
+        <div class="dim-text">前期涨幅巨大（MA250 仅 59 元 vs 峰值约 240 元、涨超 300%）、20 日 alpha 已转负、周五缩量跌停。待基本面利空排除 + 缩量企稳于 MA20 后再评估。</div>
       </div>
       <div class="dim-block">
-        <div class="dim-label"><span class="ix">04</span>结论</div>
+        <div class="dim-label"><span class="ix">03</span>结论</div>
         <div class="dim-text">周五跌停原因待确认（基本面利空 vs 恐慌补跌）。转持续跟踪——下周一重点核对公司公告是否有未披露利空；若无利空且 MA20(184) 企稳则可能是恐慌补跌，若放量跌破 MA20 则中期调整结构打开（下一支撑约 138 元）。</div>
       </div>
     </div>
@@ -721,19 +716,15 @@ data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市�
     </summary>
     <div class="hold-body">
       <div class="dim-block">
-        <div class="dim-label"><span class="ix">01</span>是否触及预设买点</div>
-        <div class="disc-box muted">target_buy_condition 待填写，无法核对。</div>
-      </div>
-      <div class="dim-block">
-        <div class="dim-label"><span class="ix">02</span>技术面参考</div>
+        <div class="dim-label"><span class="ix">01</span>技术面参考</div>
         <div class="dim-text">现价 20.74 <b>跌破 MA250(20.80) 年线</b>——中期趋势转弱重要信号。ma_arrangement=mixed，MA5(21.59)&lt;MA10(21.90)&lt;MA20(22.80) 短均线空头排列；ADX=33.50，-DI(25.84)&gt;+DI(12.88) 空头主导。alpha_20d=<b class="down">-15.84%</b>、alpha_60d=<b class="down">-38.24%</b>（中长期持续跑输沪深300，趋势性弱势股）。但 RSI6=25.26/KDJ J=10.21（极度超卖）、bias20=-9.03%，技术上有超跌反弹可能。</div>
       </div>
       <div class="dim-block">
-        <div class="dim-label"><span class="ix">03</span>买点条件是否需要更新</div>
-        <div class="dim-text">条件空缺。当前技术面<b>不支持建仓</b>（跌破年线 + 空头主导 + 持续跑输）。等放量站回 MA250(20.80) 再考虑。</div>
+        <div class="dim-label"><span class="ix">02</span>跟踪判断</div>
+        <div class="dim-text">当前技术面<b>不支持建仓</b>（跌破年线 + 空头主导 + 持续跑输）。等放量站回 MA250(20.80) 再考虑。</div>
       </div>
       <div class="dim-block">
-        <div class="dim-label"><span class="ix">04</span>结论</div>
+        <div class="dim-label"><span class="ix">03</span>结论</div>
         <div class="dim-text">中期趋势走弱、持续跑输大盘。转持续跟踪——关注能否放量站回年线 MA250。当前不建议建仓。</div>
       </div>
     </div>
@@ -923,7 +914,7 @@ data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市�
   </div>
   <div class="focus-item">
     <div class="fh"><span class="fn">603629 利通电子</span><span class="tag flat">自选</span></div>
-    <div class="fr">周五跌停，周一重点核对公司公告是否有未披露利空。若无利空且 MA20(184) 企稳则可能是恐慌补跌买点观察窗；若放量跌破 MA20 则放弃。</div>
+    <div class="fr">周五跌停，周一重点核对公司公告是否有未披露利空。若无利空且 MA20(184) 企稳则可能是恐慌补跌观察窗；若放量跌破 MA20 则放弃。</div>
   </div>
   <div class="focus-item">
     <div class="fh"><span class="fn">600989 宝丰能源</span><span class="tag flat">自选</span></div>

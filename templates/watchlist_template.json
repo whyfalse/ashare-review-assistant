@@ -1,11 +1,10 @@
 {
-  "_schema_notes": "自选股记录本地模板。target_buy_condition应是基于估值/质地的客观判断标准(价值投资角度),不是'涨了就追'之类的描述。",
+  "_schema_notes": "自选股记录本地模板。",
 
   "watchlist": [
     {
       "ticker": "(待填写)",
       "name": "(待填写)",
-      "target_buy_condition": "(待填写——例如:PE回落至XX以下,或股价回到XX估值区间)",
       "notes": "(待填写——关注理由)"
     }
   ]
