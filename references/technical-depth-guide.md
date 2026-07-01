@@ -25,9 +25,9 @@
 
 ```bash
 python .claude/skills/ashare-technical-analysis/scripts/compute_indicators.py \
-  --csv output/_tech_cache/600584_daily.csv \
+  --csv output/_tech_cache/000002_daily.csv \
   --benchmark-csv output/_tech_cache/benchmark_000300.csv \
-  --out-json output/_tech_cache/600584_ind.json
+  --out-json output/_tech_cache/000002_ind.json
 ```
 
 `--benchmark-csv` 传入沪深300基准 CSV（只需 `date`、`close` 两列），用于相对强弱维度；没有则跳过该维度。
@@ -49,7 +49,7 @@ python .claude/skills/ashare-technical-analysis/scripts/compute_indicators.py \
 
 ```bash
 python .claude/skills/ashare-technical-analysis/scripts/compute_indicators.py \
-  --csv output/_tech_cache/159558_daily.csv --out-json output/_tech_cache/159558_ind.json
+  --csv output/_tech_cache/159001_daily.csv --out-json output/_tech_cache/159001_ind.json
 ```
 
 ## 三、引擎输出 JSON 字段速查
@@ -141,7 +141,7 @@ python .claude/skills/ashare-technical-analysis/scripts/compute_indicators.py \
 ### 6.1 持仓四维深度卡片（晚间复盘用）
 
 ```
-#### 600584 长电科技 ｜ 今日 +X.XX%（板块 +Y%，沪深300 +Z%）
+#### 000002 示例股份 ｜ 今日 +X.XX%（板块 +Y%，沪深300 +Z%）
 - 技术面：站上 MA5/10/20、MA 多头排列、MACD 在零轴上方金叉延续；
   RSI12=XX（未超买/接近超买）、bias20=+X%（乖离合理/偏大）、ADX=XX（趋势强度中等）。
   → 当前处于「趋势健康上行、短期略有过热」的状态。
