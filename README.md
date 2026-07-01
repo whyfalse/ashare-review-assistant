@@ -6,10 +6,11 @@
 
 - **全天候信息闭环**：盘前隔夜外盘汇总 → 盘中 15 分钟快速纪律核对 → 盘后深度复盘 → 周日清算积压事项，四个时间窗技能首尾衔接，"待观察事项"在彼此间交棒
 - **个股技术面深度分析**：点名任意个股即给出均线/MACD/RSI/KDJ/布林带/ADX/量能/支撑阻力位多维指标，五维度加权打分及买卖/止损止盈参考区间
+- **全维度投资风险排查**：宏观/制度/行业/市场/微观六层风险框架，红旗信号一票否决优先于加权打分；按需触发，或由复盘技能命中风险信号时自动接力、周复盘前自动预跑
 - **三时间框架机会发掘**：日内（量比异动/板块共振）、短期（政策/消息催化）、中长期（主行情新方向），催化剂驱动与基本面分栏呈现，不混用判断标准
 - **宏观环境记忆**：13 维度（政治/经济/货币/财政/汇率/地产/通胀/人口/国际/制度/央行/会议日历/产业热点）分层维护，慢变量 90 天、周期变量 30 天、事件驱动即时更新
 - **持仓纪律核对**：以投资逻辑是否实质变化为持有/卖出依据，短期消息/技术信号只标记观察，不单独驱动买卖
-- **自动接力与定时推送**：编排 Agent 自动消费宏观队列、生成移动端数据看板；`scheduler/run_review.py` 按交易日历无头调用 Claude Code，SMTP 推送报告到邮箱
+- **自动接力与定时推送**：编排 Agent 自动消费宏观队列、风险接力、生成移动端数据看板；`scheduler/run_review.py` 按交易日历无头调用 Claude Code，SMTP 推送报告到邮箱
 - **移动端数据看板**：复盘报告自动渲染为深色单栏 HTML，单文件自包含可离线打开，适合手机阅读
 
 ## 核心思想
@@ -72,7 +73,9 @@
 | 17:00–23:30 盘后 | `ashare-evening-review` | A 股全天+亚太收盘复盘，白天消息面整理，**唯一全量跑技术引擎的时段**，产出隔夜观察事项交棒 |
 | 周日 09:00–12:00 | `ashare-weekly-review` | 周度深度复盘：大盘/持仓/板块/未结事项清算，下周事件预告 |
 
-四个技能首尾衔接，通过"待观察事项"在彼此间交棒。周复盘清算本周积压事项，产出下周预告作为新一周的起点。
+四个技能首尾衔接，通过“待观察事项”在彼此间交棒。周复盘清算本周积压事项，产出下周预告作为新一周的起点。
+
+此外，编排层在复盘命中风险信号（如一票否决级红旗苗头）时自动接力 `ashare-risk-assessment` 对相关标的深挖，并在周复盘前先跑一次组合风险预跑（详见下文「自动接力机制」）。
 
 ## 技能一览
 
@@ -91,6 +94,7 @@
 |------|----------|------|
 | `ashare-opportunity-discovery` | 复盘技能调用 / 手动 | 三时间框架机会发掘：`intraday`（量比异动/板块共振）、`short_term`（政策/消息催化/跨市场传导）、`medium_term`（主行情新细分方向/跨日题材演化）。与持仓基本面分栏呈现 |
 | `ashare-technical-analysis` | 用户点名个股 | 纯技术面分析：均线/MACD/RSI/KDJ/布林带/ADX/量能/ATR/支撑阻力位等多维指标，五维度加权打分，给出买入/持有/减仓/卖出/观望结论及止损止盈参考区间 |
+| `ashare-risk-assessment` | 用户点名 / 风险接力 / 周复盘预跑 | 全维度投资风险排查：宏观/制度/行业/市场/微观六层框架（每层定义检索字段、判断阈值、红旗信号），红旗一票否决优先于加权打分，产出分层风险清单与总体风险等级 |
 
 ### 基础设施
 
@@ -105,6 +109,7 @@
 - **日常接力**（morning/intraday/evening 后）：只跑队列消费——快速落库新 Tier 3 事件，不触发全量 tier 复核
 - **周复盘接力**：跑完整维护——消费队列 + 全量 tier 复核 + 到期检查 + candidate 转正/淘汰
 - **看板接力**：调度器要求时，复盘后自动渲染移动端数据看板 HTML
+- **风险接力**：① 复盘命中风险信号（一票否决级红旗苗头/重大异动/重大公告）时，自动接力 `ashare-risk-assessment` 对相关标的深挖；② 周复盘前先跑一次组合风险预跑（L6 集中度 + 变化标的 L5），周复盘保持独立、不受影响
 
 ## 宏观记忆体系
 
@@ -135,12 +140,13 @@
 ```
 .claude/
   agents/                编排 Agent（review-orchestrator）
-  skills/                九个技能，各含 SKILL.md 及专属资源
+  skills/                十个技能，各含 SKILL.md 及专属资源
     ashare-morning-brief/        ashare-technical-analysis/  (scripts/compute_indicators.py + score.py)
     ashare-intraday-review/      ashare-macro-context/
     ashare-evening-review/       ashare-dashboard/           (templates/)
     ashare-weekly-review/        ashare-data-source-config/
     ashare-opportunity-discovery/
+    ashare-risk-assessment/      (references/risk_dimensions.md + report_template.md)
 data/                    运行时个人数据（持仓/自选股/宏观记忆/更新队列，不入库）
 output/                  技能输出产物（报告/看板/技术缓存 _tech_cache/）
 references/              跨技能共享规则
@@ -159,7 +165,7 @@ templates/               数据模板（从模板复制到 data/ 初始化）
 2. 判断当天是否 A 股交易日（按工作日判断，排除周六周日）
 3. 无头调用 Claude Code 执行技能
 4. 通过 SMTP 发送报告到配置邮箱
-5. 可选：自动生成数据看板 HTML 作为邮件正文
+5. 可选：自动生成数据看板 HTML 作为邮件正文（若当日触发风险接力/周预跑，看板邮件末尾自动追加「风险识别」板块，内容取自 `output/ashare-risk-assessment/`）
 
 ```bash
 python scheduler/run_review.py                       # 按当前时间自动选技能
