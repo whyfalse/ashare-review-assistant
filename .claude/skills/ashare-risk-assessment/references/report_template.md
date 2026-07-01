@@ -67,10 +67,26 @@
 
 ## 五、数据来源与缺口说明
 
-- 本次分析使用的数据来源:[专业金融MCP / 相关ashare-skill产出 /
-  通用网络检索 / 用户提供资料,如实注明]
-- 数据缺口:[哪些层面因数据源限制未能充分展开,如实列出,不要假装
-  已完整覆盖]
+### 数据来源(与启动前取数计划表逐桶核对,事后填报)
+
+| 数据块 | 来源工具(tool_id) | 实际走的层级(primary/fallback) | 备注(失败原因/降级声明) |
+|--------|---------|---------|------|
+| L1 宏观指标 | <填配置 tool_id> | primary / fallback(写明 error.code) | `macro_indicator` 桶 |
+| L2 政策 / L5.5 事件性资讯 | <填配置 tool_id> | primary / fallback | `news_policy` 桶;**此行必须含 primary 工具,仅 web_search 时须注明"未经专业资讯源交叉核对"** |
+| L2/L5.2/L5.5 公告 | <填配置 tool_id> | primary / fallback | `announcement_doc` 桶 |
+| L3/L5.1-L5.4 财务基本面 | <填配置 tool_id> | primary / fallback | `cn_equity_fundamental` 桶 |
+| L4/L5.4 估值与交易结构 | <填配置 tool_id> | primary / fallback | `cn_equity_quote` 桶 |
+| L4 新发基金等 | <填配置 tool_id> | primary / fallback | `fund_index_bond` 桶 |
+| L5.6 技术面 | 复用 `ashare-technical-analysis` / 简化定性 | primary(复用) / 降级 | 注明是引用技术打分还是简化定性 |
+
+核对规则:每行的"来源工具"与"层级"必须与启动前取数计划表一致;若实际走了
+fallback,备注列必须写明 primary 失败的 error.code。`news_policy` 一行若不含
+配置 primary 工具,视为未完成交叉印证,须显式声明可靠性局限。
+
+### 数据缺口
+
+[哪些层面因数据源限制未能充分展开,如实列出,不要假装已完整覆盖;用户直接
+提供资料的部分注明来源。]
 
 ## 六、风险提示与免责声明
 
