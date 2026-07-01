@@ -20,6 +20,7 @@ run_review.py — A股复盘定时调度入口
 
 import argparse
 import datetime as dt
+import html
 import shutil
 import subprocess
 import sys
@@ -107,9 +108,11 @@ def is_trading_day(now: dt.datetime, cfg: dict) -> bool:
 def run_skill(skill: str, cfg: dict, dashboard_enabled: bool = False) -> str:
     """通过 review-orchestrator agent 调用 claude 执行技能, 返回报告正文; 失败抛 RuntimeError。
 
-    review-orchestrator 相比直接调 Skill 多了两层自动接力:
+    review-orchestrator 相比直接调 Skill 多了三层自动接力:
       1. 复盘后自动检查宏观更新队列, 有新事件则调用 ashare-macro-context 消费落库
-      2. (周复盘时) 自动触发 ashare-macro-context 完整维护模式
+      2. 风险识别接力: 复盘后命中一票否决级红旗苗头等风险信号, 接力调用
+         ashare-risk-assessment 对相关标的深挖; 周复盘时先做一次组合风险预跑再执行周复盘
+      3. (周复盘时) 自动触发 ashare-macro-context 完整维护模式
     """
     ccfg = cfg.get("claude", {}) or {}
     if ccfg.get("prompt"):
@@ -208,6 +211,50 @@ def find_dashboard_html(skill: str, date_str: str) -> Optional[Path]:
     return None
 
 
+# ---------- 风险报告追加(看板邮件用) ----------
+def render_risk_appendix_html(date_str: str) -> str:
+    """读取当天 output/ashare-risk-assessment/ 下的风险报告, 渲染为可追加到看板邮件正文末尾的 HTML 片段。
+
+    风险报告由 ashare-risk-assessment 技能(经编排层风险接力/周复盘预跑触发)落盘,
+    文件名形如 `<代码>_risk_[日期].md` 或 `risk_<对象>_[日期].md`, 均以 `_[日期].md` 结尾。
+    本函数只读取磁盘文件并追加为邮件里的"风险识别"板块, 不改动任何技能逻辑;
+    无匹配文件时返回空串(本次复盘未触发风险接力)。
+
+    说明: 仅在看板 HTML 邮件分支追加——看板只渲染复盘报告正文、不含风险报告;
+    纯文本邮件分支的正文取自编排层合并后的 stdout, 已含风险内容, 不再追加以免重复。
+    """
+    risk_dir = PROJECT_ROOT / "output" / "ashare-risk-assessment"
+    if not risk_dir.is_dir():
+        return ""
+    matches = sorted(risk_dir.glob(f"*_{date_str}.md"))
+    blocks = []
+    for f in matches:
+        try:
+            content = f.read_text(encoding="utf-8").strip()
+        except OSError as e:
+            log(f"读取风险报告失败 {f.name}: {e}")
+            continue
+        if content:
+            blocks.append((f.stem, content))
+    if not blocks:
+        return ""
+    log(f"向邮件追加 {len(blocks)} 份风险报告: {[name for name, _ in blocks]}")
+    parts = [
+        '<hr style="margin:24px 0;border:none;border-top:1px solid #444;">',
+        '<section style="font-family:PingFang SC,Microsoft YaHei,sans-serif;padding:12px 0;">',
+        '<h2 style="font-size:18px;color:#e8c46a;margin:0 0 12px;">🛡️ 风险识别报告（复盘风险接力触发，附加于本邮件）</h2>',
+    ]
+    for name, content in blocks:
+        parts.append(
+            f'<h3 style="font-size:14px;color:#9fb4c7;margin:12px 0 4px;">{html.escape(name)}</h3>'
+            f'<pre style="white-space:pre-wrap;word-break:break-word;'
+            f'background:#1e1e1e;color:#d4d4d4;padding:12px;border-radius:6px;'
+            f'font-size:13px;line-height:1.5;margin:0 0 16px;">{html.escape(content)}</pre>'
+        )
+    parts.append('</section>')
+    return "".join(parts)
+
+
 # ---------- 日志落盘与清理 ----------
 def flush_log(cfg: dict, skill: str):
     lcfg = cfg.get("log", {}) or {}
@@ -281,7 +328,7 @@ def main():
             if dashboard_enabled:
                 html_path = find_dashboard_html(skill, date_str)
                 if html_path:
-                    html_body = html_path.read_text(encoding="utf-8")
+                    html_body = html_path.read_text(encoding="utf-8") + render_risk_appendix_html(date_str)
                     send_email(ecfg, f"{prefix} {skill} {date_str}", html_body, log, body_type="html")
                 else:
                     log("数据看板 HTML 文件未找到, 退回纯文本邮件")
