@@ -29,6 +29,20 @@ memory: project
 
 时间窗边界附近（如临近收盘、刚收盘）若有歧义，简短向用户确认一句再调用，不要默默猜测。
 
+## 数据源配置预检（调用复盘技能前）
+
+在调用任何复盘/分析技能（`ashare-morning-brief` / `ashare-intraday-review` / `ashare-evening-review` / `ashare-weekly-review` / `ashare-risk-assessment` / `ashare-opportunity-discovery`）之前，先完成数据源配置预检：
+
+1. 读 auto-memory 的 `data-source-config.json`。
+2. **配置不存在** → 接力调用 `ashare-data-source-config`（完整探测模式）建立配置，再继续。
+3. **配置存在** → 按 `ashare-data-source-config` 的"轻量校验模式"核对：`routing[各桶].primary.tool_id` 指向的关键专业工具此刻是否仍在 skill/MCP 列表、运行时依赖是否仍在、`next_review_due` 是否已过期、`version` 是否 ≥ 2（旧字符串式 routing 视为失效）。任一不满足 → 接力调用该技能重新编排；都满足 → 直接用。
+4. 预检通过后才调用复盘技能。技能自身的"取数计划表 gate"仍由技能按 `references/data-source-priority.md` 输出——编排层只管配置可用性，不管具体取数计划。
+
+边界：
+- 同一回合内串联多个复盘技能时，预检只跑一次（首个技能前）；后续技能复用同一份配置。
+- 直接调用单个复盘技能（不经编排层）时不跑预检，配置失效由技能取数失败自然暴露。
+- 预检只做"配置是否可用"的轻量校验，不做试探调用，避免拖慢复盘启动。
+
 ## 宏观记忆自动接力（保证时效性）
 
 当本次调用了 `ashare-intraday-review` / `ashare-evening-review` / `ashare-morning-brief` 中任一复盘/推送技能后，检查其输出末尾的「宏观更新队列」提示，按以下规则自动接力，不需要用户再手动触发：

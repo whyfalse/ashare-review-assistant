@@ -32,7 +32,7 @@ description: 在A股交易日开盘前(典型为8:00-8:20窗口,集合竞价前)
 
 ## 四块推送内容
 
-> **启动前(取数准备)**:按 `../../../references/data-source-priority.md` 的"取数前配置准备"流程,先读 auto-memory 的 `data-source-config.json` 并做轻量校验;配置缺失或校验失败(关键专业工具消失/依赖缺失/`next_review_due` 过期、`version<2` 旧结构)时,先接力调用 `ashare-data-source-config` 探测本地工具并重新编排配置,再开始取数。隔夜美股/欧股按配置走对应桶——美股美指若专业工具覆盖走专业桶,日股/欧股等不覆盖市场走 `overseas_uncovered` 桶(仅采信定性信息)。**取数过程中记录每类数据实际使用的工具(primary 还是 fallback),供末尾"数据来源"小节使用。**
+> 数据源配置预检（读 `data-source-config.json` + 轻量校验 + 失效时重编排）由 `review-orchestrator` 在调用本技能前完成，本技能不重复。隔夜美股/欧股按配置走对应桶——美股美指若专业工具覆盖走专业桶,日股/欧股等不覆盖市场走 `overseas_uncovered` 桶(仅采信定性信息)。**取数过程中记录每类数据实际使用的工具(primary 还是 fallback),供末尾"数据来源"小节使用。**
 
 ### 启动前必须声明的取数计划(gate,未完成不得进入第1块取数)
 

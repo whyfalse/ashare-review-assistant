@@ -1,0 +1,22 @@
+{
+  "_schema_notes": "本文件是 ashare-risk-assessment skill 的红旗信号长期跟踪记忆。设计目标:让上一次分析发现的一票否决级红旗(ST/立案/审计非标/股权冻结/重大诉讼/海外制裁/反倾销等)不会被下一次分析从零重新识别——命中即入榜、解除即关闭、每次分析前后都核对一遍。\n\n  写入规则:ashare-risk-assessment 是本文件的唯一写入者。分析启动前读 open 状态的红旗作为必查项;分析结束后回写——新发现的红旗追加、仍存在的更新 last_checked、已解除的置为 resolved 并填 resolution_date。\n\n  object 字段约定:大盘/板块用描述性字符串('大盘' / '板块:新能源');个股用标准代码(如 '600519SH',去掉点号);持仓组合用 '组合'。\n\n  flag_type 取值参考:ST / *ST / 立案调查 / 行政处罚 / 审计非标 / 股权冻结 / 重大诉讼 / 重大舆情 / 海外制裁(实体清单/SDN) / 海外重大诉讼 / 海外退市审计争议 / 反倾销反补贴 / 质押平仓线 / 退市风险警示。遇到新类型时按事件性质扩展,不必拘泥于现有列表。\n\n  status 取值:open(未解除,每次分析必查) / resolved(已解除,留痕不删除) / downgraded(降级但仍需观察,例如从 ST 摘帽但仍有未决诉讼)。",
+
+  "flags": [
+    {
+      "_comment": "示例条目,实际使用时按需新增/删除。open 状态的条目每次风险分析启动前都会被读取并核对。",
+      "object": "(示例:600519SH / 大盘 / 板块:新能源 / 组合)",
+      "object_name": "(示例:贵州茅台 / 大盘整体 / 新能源板块 / 持仓组合)",
+      "flag_type": "(示例:立案调查 / ST / 审计非标 / 股权冻结 / 海外制裁 / 反倾销 / ...)",
+      "category_layer": "L5.5",
+      "first_noted": "2026-07-02",
+      "status": "open",
+      "summary": "(一句话客观陈述:什么事件、涉及金额/比例、当前阶段)",
+      "source_report": "output/ashare-risk-assessment/600519SH_risk_2026-07-02.md",
+      "last_checked": "2026-07-02",
+      "last_report_date": "2026-07-02",
+      "resolution_date": null,
+      "resolution_note": null,
+      "history": []
+    }
+  ]
+}

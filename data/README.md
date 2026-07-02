@@ -10,6 +10,7 @@
 | `watchlist.json` | `../templates/watchlist_template.json` | intraday-review, evening-review, morning-brief, weekly-review | 用户(手动) |
 | `macro_context.json` | `../templates/macro_context_template.json` | 所有技能 | macro-context（唯一写入者） |
 | `macro_updates_queue.json` | 无(运行时自动创建) | macro-context | intraday-review, evening-review, morning-brief（追加建议） |
+| `risk_flags.json` | `../templates/risk_flags_template.json` | risk-assessment | risk-assessment（唯一写入者） |
 | `sector_watchlist.json` | `../templates/sector_watchlist_template.json` | weekly-review | 用户(手动) |
 
 ## 初始化

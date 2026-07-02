@@ -114,7 +114,7 @@ description: 从不同的时间窗口发掘A股投资机会——日内机会(�
 
 ## 执行流程
 
-> **启动前（取数准备）**：按 `../../../references/data-source-priority.md` 的"取数前配置准备"流程，先读 auto-memory 的 `data-source-config.json` 并做轻量校验；配置缺失或校验失败时，先接力调用 `ashare-data-source-config` 探测本地工具并重新编排配置，再开始取数。**取数过程中记录每类数据实际使用的工具(primary 还是 fallback),供末尾"数据来源"小节使用。**
+> 数据源配置预检（读 `data-source-config.json` + 轻量校验 + 失效时重编排）由 `review-orchestrator` 在调用本技能前完成，本技能不重复。**取数过程中记录每类数据实际使用的工具(primary 还是 fallback),供末尾"数据来源"小节使用。**
 
 1. **解析 scope 参数**：确定本次聚焦的时间框架（intraday / short_term / medium_term / all）
 2. **加载本地上下文**：读取 `data/positions.json`、`data/watchlist.json`、宏观环境记忆文档，用于后续交叉标注

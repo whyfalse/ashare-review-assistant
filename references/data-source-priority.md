@@ -9,7 +9,9 @@
 - 由 `ashare-data-source-config` 技能**探测本地实际装了哪些取数工具**,由 AI 一次性编排出"数据类型 → 有序工具链(含兜底)"的具体配置,写入 auto-memory 的 `data-source-config.json`(结构见该技能 `references/config-schema.md`)。
 - 各复盘/分析技能取数时**直接读这份配置照做**:按要取的数据类型查对应桶的 `primary` → 取不到依次走 `fallbacks`,并遵守该桶 `notes` 里的口径/兜底声明要求。
 
-### 取数前的配置准备(每次复盘启动时)
+### 取数前的配置准备(由 `review-orchestrator` 在调用复盘技能前完成)
+
+> 本预检的执行者是 `review-orchestrator`（编排层），不是各复盘技能。技能被调用时假定配置已可用；同一回合串联多个技能时预检只跑一次。直接调用单个复盘技能（不经编排层）时不跑预检，配置失效由技能取数失败自然暴露。
 
 1. **读配置**:读 auto-memory 的 `data-source-config.json`。
 2. **配置不存在** → 接力调用 `ashare-data-source-config`(完整探测模式)先建立配置,再继续。
