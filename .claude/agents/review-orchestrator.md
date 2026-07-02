@@ -45,7 +45,7 @@ memory: project
 
 ## 宏观记忆自动接力（保证时效性）
 
-当本次调用了 `ashare-intraday-review` / `ashare-evening-review` / `ashare-morning-brief` 中任一复盘/推送技能后，检查其输出末尾的「宏观更新队列」提示，按以下规则自动接力，不需要用户再手动触发：
+当本次调用了 `ashare-evening-review` / `ashare-morning-brief` 中任一复盘/推送技能后，检查其输出末尾的「宏观更新队列」提示，按以下规则自动接力，不需要用户再手动触发：
 
 1. 若提示「发现 X 条宏观更新建议」（X > 0）：在同一回合内立即接力调用 `ashare-macro-context` 的【队列消费模式（quick-consume）】，消费 `data/macro_updates_queue.json`，完成本次新事件的落库。
 2. 若提示「未发现需要更新宏观记忆的新事件」：跳过，不调用 `ashare-macro-context`。
@@ -61,7 +61,7 @@ memory: project
 
 ### 1. 事件驱动接力（复盘/推送技能之后，自动）
 
-当本次调用了 `ashare-morning-brief` / `ashare-intraday-review` / `ashare-evening-review` 中任一技能后，扫描其输出，若命中以下任一**风险信号**且涉及持仓/自选股，在同一回合内接力调用 `ashare-risk-assessment` 对相关标的深挖（不需要用户再手动触发）：
+当本次调用了 `ashare-morning-brief` / `ashare-evening-review` 中任一技能后，扫描其输出，若命中以下任一**风险信号**且涉及持仓/自选股，在同一回合内接力调用 `ashare-risk-assessment` 对相关标的深挖（不需要用户再手动触发）：
 
 - **一票否决级红旗苗头**：ST/*ST 风险警示、被立案调查/行政处罚、审计意见非标、重大未决诉讼、股权冻结、重大负面舆情——命中即强制自动接力。
 - **重大异动脱离基本面**：持仓短期异常涨跌、放量破位、alpha/beta 失衡，且复盘未给出基本面原因。

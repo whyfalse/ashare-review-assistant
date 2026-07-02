@@ -2,8 +2,8 @@
 @dashboard-template
 name: 盘中复盘看板
 match: 盘中复盘,尾盘复盘,14:30复盘,收盘前复盘,盘中检查,盘中温度计,intraday review
-target: A股交易日盘中(14:30-14:45窗口)快速复盘报告(ashare-intraday-review 产出)的移动端看板
-data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自选股提醒,宏观背景校准,大盘指数情绪,实时资金流向,板块涨跌温度,短期机会发掘,收盘前待办,留待晚间疑点,宏观更新队列,风险提示免责
+target: A股交易日盘中(14:30-14:45窗口)快速复盘报告(ashare-intraday-review 产出)的移动端看板。该技能为独立技能,只产出"大盘/资金流向/板块温度计"与"短期机会发掘"两块内容。
+data: 大盘指数情绪,实时资金流向,板块涨跌温度,短期机会发掘,风险提示免责
 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -20,18 +20,16 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
     生成时用真实数据源内容逐处替换;架构、分区顺序、样式、纪律措辞位保留不动。
   - 占位规则:数字替换数字、文案替换文案;涨跌方向用 .up/.down + ▲/▼ 双编码;缺失字段按各模块
     注释的"缺失时"规则渲染("—"灰显 / "数据缺失"标注 / 整块降级),绝不编造或外推。
-  - 盘中特色:① 全程挂"盘中快照"警示;② 技术位互动温度计用条形可视化"现价 vs 昨晚支撑/压力位"
-    的位置(上方/下方/逼近/已突破),不现算指标;③ 待办分"收盘前 15 分钟"与"留待晚间"两栏。
-  - 比例条(资金分流 / 板块涨跌 / 温度计距离条)的宽度【必须在生成时预算并内联到 style】,不得依赖 <script>:
+  - 盘中特色:① 全程挂"盘中快照"警示;② 本看板为独立技能产出,不含持仓/自选股/宏观校准/技术位温度计,
+    不承接昨晚晚间复盘参考位,也不产出待办/宏观更新队列。
+  - 比例条(资金分流 / 板块涨跌)的宽度【必须在生成时预算并内联到 style】,不得依赖 <script>:
     看板常经邮件发送,邮件客户端会删除 <script> 且不执行 JS,运行时算宽度的条会坍缩失效。
     两类规则(组内 M = max|v|):
-      ② 中心零轴半幅(资金分流 .fill / 温度计距离条 .fill): S = M×1.15, half = min(50, |v|/S×50);
+      ② 中心零轴半幅(资金分流 .fill): S = M×1.15, half = min(50, |v|/S×50);
          v≥0 → left:50%, width:half%;  v<0 → left:(50-half)%, width:half%
       ③ 单向归一(板块涨跌 .sec-fill): S = M×1.1, width = |v|/S×100%
-    注意: 温度计距离条按"每张 thermo-card 内"独立归一(组内 M 仅取该卡各条距离的 max|v|)。
-  - 纪律保留位:"参考位非下单指令"、"触及纪律线只提示核对不替用户下结论"、短期机会与中长期持仓
-    分栏、盘中快照非收盘数据声明、风险提示与免责声明——这些结构在模板里已预留,生成时填入数据源
-    原文,不得为版面精简而删改口径。
+  - 纪律保留位:短期机会与中长期持仓分栏、盘中快照非收盘数据声明、风险提示与免责声明——这些结构
+    在模板里已预留,生成时填入数据源原文,不得为版面精简而删改口径。
 -->
 <style>
   :root{
@@ -97,7 +95,7 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
   .tag.flat{color:var(--flat);}
   .chips{display:flex; gap:6px; flex-wrap:wrap;}
 
-  /* ===== 状态横幅(技术状态/纪律提示,色调与涨跌色区分,靠文字双编码) ===== */
+  /* ===== 状态横幅 ===== */
   .banner{font-size:13px; font-weight:600; padding:8px 12px; border-radius:8px; margin:8px 0;
     border-left:3px solid var(--flat); background:var(--panel-2); line-height:1.6;}
   .banner.warn{color:var(--warn); background:var(--warn-soft); border-left-color:var(--warn);}
@@ -120,48 +118,6 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
   .kpi .kl{font-size:11px; color:var(--faint);}
   .kpi .kv{font-family:var(--fm); font-size:19px; font-weight:700; margin-top:2px;}
   .kpi .ks{font-size:11px; color:var(--dim); margin-top:1px;}
-
-  /* 持仓速览芯片条(首屏给方向感) */
-  .hold-strip{margin-top:12px; padding-top:11px; border-top:1px dashed var(--border-soft);}
-  .hold-strip .hl{font-size:11.5px; color:var(--faint); margin-bottom:7px;}
-  .hold-chips{display:flex; gap:6px; flex-wrap:wrap;}
-  .hchip{display:inline-flex; align-items:center; gap:5px; background:var(--panel-3); border:1px solid var(--border-soft);
-    border-radius:7px; padding:4px 8px; font-size:12px;}
-  .hchip .hc-n{color:var(--dim);}
-  .hchip .hc-v{font-family:var(--fm); font-weight:600;}
-
-  /* ===== 持仓异动子卡 ===== */
-  .pos-card{background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:12px 13px; margin-bottom:10px;}
-  .pos-card.warn-border{border-color:var(--warn-border); box-shadow:inset 3px 0 0 var(--warn);}
-  .pos-card.up-border{box-shadow:inset 3px 0 0 var(--up);}
-  .pos-card.down-border{box-shadow:inset 3px 0 0 var(--down);}
-  .pos-head{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:5px;}
-  .pos-head .pn{font-family:var(--fd); font-size:15px; font-weight:700;}
-  .pos-head .pc{font-family:var(--fm); font-size:11.5px; color:var(--faint);}
-  .pos-head .pp{margin-left:auto; font-family:var(--fm); font-size:18px; font-weight:700;}
-  .pos-meta{display:flex; gap:6px; flex-wrap:wrap; margin-bottom:6px;}
-  .pos-desc{font-size:12.5px; color:var(--dim); line-height:1.7;}
-  .pos-desc b{color:var(--text);}
-  .discipline-tag{display:inline-flex; align-items:center; gap:4px; font-size:11.5px; color:var(--warn);
-    background:var(--warn-soft); border:1px solid var(--warn-border); border-radius:6px; padding:3px 7px; margin-top:6px;}
-
-  /* ===== 技术位互动温度计(盘中特色核心模块) ===== */
-  .thermo-card{background:var(--panel-2); border:1px solid var(--border); border-radius:10px; padding:12px 13px; margin-bottom:10px;}
-  .thermo-head{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:8px;}
-  .thermo-head .tn{font-family:var(--fd); font-size:14.5px; font-weight:700;}
-  .thermo-head .tc{font-family:var(--fm); font-size:11px; color:var(--faint);}
-  .thermo-head .tp{margin-left:auto; font-family:var(--fm); font-size:16px; font-weight:700;}
-  /* 距离条:零轴居中,现价相对参考位上方=红条向右,下方=绿条向左,逼近/突破用警示色 */
-  .dist-row{display:grid; grid-template-columns:62px 1fr 70px; gap:8px; align-items:center; margin:6px 0; font-size:12px;}
-  .dist-row .dl{color:var(--faint); font-size:11.5px;}
-  .dist-row .dr{position:relative; height:14px; background:var(--panel-3); border-radius:4px; overflow:hidden;}
-  .dist-row .dr .zero{position:absolute; left:50%; top:0; bottom:0; width:1px; background:var(--border);}
-  .dist-row .dr .fill{position:absolute; top:0; bottom:0; border-radius:3px;}
-  .dist-row .dv{font-family:var(--fm); font-size:11.5px; text-align:right; font-weight:600;}
-  .thermo-vol{font-size:12px; color:var(--dim); margin-top:8px; padding-top:8px; border-top:1px dashed var(--border-soft); line-height:1.7;}
-  .thermo-vol b{color:var(--text);}
-  .ref-note{font-size:11px; color:var(--faint); margin-top:6px; line-height:1.6;}
-  .ref-note b{color:var(--warn);}
 
   /* ===== 资金流向: 零轴横向条形 ===== */
   .flow-row{display:grid; grid-template-columns:96px 1fr 64px; gap:8px; align-items:center; margin:5px 0; font-size:12px;}
@@ -187,12 +143,6 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
   .idx-cell .ic{font-family:var(--fm); font-size:12px; font-weight:600;}
   .idx-cell.hi{border-color:var(--warn-border); background:linear-gradient(160deg,var(--warn-soft),var(--panel-2) 70%);}
 
-  /* ===== 宏观映射条目 ===== */
-  .map-item{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:9px; padding:11px 12px; margin-bottom:8px;}
-  .map-item .mh{font-size:12.5px; color:var(--text); font-weight:600; margin-bottom:4px; line-height:1.6;}
-  .map-item .mm{font-size:12px; color:var(--dim); line-height:1.7;}
-  .map-item .mm b{color:var(--info);}
-
   /* ===== 短期机会卡(独立分栏,口径声明) ===== */
   .opp-card{background:var(--panel-2); border:1px solid var(--border); border-left:3px solid var(--strength); border-radius:9px; padding:11px 12px; margin-bottom:9px;}
   .opp-card .oh{font-family:var(--fd); font-size:14px; font-weight:700; margin-bottom:4px;}
@@ -201,31 +151,6 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
   .opp-split-note{font-size:11px; color:var(--faint); background:var(--panel-3); border:1px dashed var(--border-soft);
     border-radius:7px; padding:7px 10px; margin-bottom:10px; line-height:1.7;}
   .opp-split-note b{color:var(--strength);}
-
-  /* ===== 自选股提醒 ===== */
-  .wl-card{background:var(--panel-2); border:1px solid var(--border-soft); border-left:3px solid var(--info); border-radius:9px; padding:11px 12px; margin-bottom:8px;}
-  .wl-card .wh{font-family:var(--fd); font-size:14px; font-weight:700; margin-bottom:3px; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;}
-  .wl-card .wh .wc{font-family:var(--fm); font-size:11px; color:var(--faint); font-weight:400;}
-  .wl-card .wd{font-size:12.5px; color:var(--dim); line-height:1.7;}
-  .wl-card .wd b{color:var(--text);}
-
-  /* ===== 待办两栏 ===== */
-  .todo-grid{display:grid; gap:10px;}
-  .todo-card{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:9px; padding:11px 12px;}
-  .todo-card.now{border-left:3px solid var(--warn);}
-  .todo-card.tonight{border-left:3px solid var(--info);}
-  .todo-card h4{font-family:var(--fd); font-size:13px; font-weight:700; margin-bottom:6px; display:flex; align-items:center; gap:6px;}
-  .todo-card ul{list-style:none; padding:0;}
-  .todo-card li{font-size:12.5px; color:var(--dim); line-height:1.7; padding:4px 0 4px 14px; position:relative;}
-  .todo-card li::before{content:"›"; position:absolute; left:2px; color:var(--faint);}
-  .todo-card li b{color:var(--text);}
-  .todo-card.now li::before{color:var(--warn);}
-  .todo-card.tonight li::before{color:var(--info);}
-
-  /* ===== 宏观更新队列 ===== */
-  .queue-box{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:9px; padding:11px 12px; font-size:12.5px; color:var(--dim); line-height:1.7;}
-  .queue-box.empty{color:var(--down);}
-  .queue-box b{color:var(--text);}
 
   /* ===== 页脚 / 免责 ===== */
   footer{margin-top:30px; border-top:1px solid var(--border-soft); padding-top:16px;}
@@ -249,15 +174,15 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
 
 <!-- 盘中快照警示(贯穿全篇的基调提醒) -->
 <div class="snap-warn">
-  <b>⚠ 盘中快照</b>：本看板数据为 14:30 前后盘中实时快照，<b>非收盘数据</b>；技术位互动温度计承接昨晚晚间复盘参考位，<b>盘中不现算指标</b>；剩余交易时间约 15 分钟，不建议仓促操作。
+  <b>⚠ 盘中快照</b>：本看板数据为 14:30 前后盘中实时快照，<b>非收盘数据</b>；仅描述当日盘面现象（指数、资金流向、板块冷热、涨跌停结构），<b>不预测方向、不构成操作建议</b>。
 </div>
 
 <!-- ============ ① HERO 首屏核心结论 ============ -->
 <!--
-  模块: 首屏风格判断 + 上证现价 + KPI速览 + 持仓速览
-  数据: 报告"大盘/资金流向/板块温度计"的风格判断一句话 + 上证现价/涨跌 + 涨跌家数/主力资金 + 持仓自选今日涨跌
-  形式: 大字风格判断 → 上证现价三件套 → KPI 2格 → 持仓速览彩色芯片
-  缺失时: 上证现价缺失→KPI显示"—"灰显; 涨跌家数缺失→隐藏KPI并在该格标"涨跌家数缺失"; 持仓缺失→隐藏持仓速览条
+  模块: 首屏风格判断 + 上证现价 + KPI速览
+  数据: 报告"大盘/资金流向/板块温度计"的风格判断一句话 + 上证现价/涨跌 + 涨跌家数/主力资金
+  形式: 大字风格判断 → 上证现价三件套 → KPI 2格
+  缺失时: 上证现价缺失→KPI显示"—"灰显; 涨跌家数缺失→隐藏KPI并在该格标"涨跌家数缺失"
 -->
 <section class="hero">
   <div class="sec-eye">intraday · 核心结论</div>
@@ -281,197 +206,9 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
       <div class="ks">涨跌比约 1:1，整体仍偏弱</div>
     </div>
   </div>
-
-  <div class="hold-strip">
-    <div class="hl">我的持仓 今日速览</div>
-    <div class="hold-chips">
-      <span class="hchip"><span class="hc-n">示例科技</span><span class="hc-v down">▼5.47%</span></span>
-      <span class="hchip"><span class="hc-n">示例股份</span><span class="hc-v down">▼6.34%</span></span>
-      <span class="hchip"><span class="hc-n">示例行业ETF</span><span class="hc-v up">▲2.53%</span></span>
-    </div>
-  </div>
 </section>
 
-<!-- ============ ② 持仓异动 / 纪律核对 ============ -->
-<!--
-  模块: 持仓异动 / 纪律核对
-  数据: 报告"持仓异动 / 纪律核对"节 —— 每只持仓的现价/涨跌/量比/异动描述/是否触及预设纪律线
-  形式: 每只持仓一张子卡,左侧色条按涨跌着色,触及纪律线时切警示边框 + 纪律提示徽章
-  缺失时: 单只持仓某字段缺失→该字段"—"灰显; 整只缺失→不渲染该子卡; 触及纪律线提示缺失→隐藏纪律徽章
--->
-<section class="sec">
-  <div class="sec-eye">step 1 · 持仓异动</div>
-  <div class="sec-title">持仓异动 / 纪律核对 <span class="sub">盘中15分钟检查清单</span></div>
-
-  <div class="pos-card down-border">
-    <div class="pos-head">
-      <span class="pn">示例科技</span><span class="pc">000001</span>
-      <span class="pp down">139.23 ▼5.47%</span>
-    </div>
-    <div class="pos-meta">
-      <span class="tag down">放量下跌</span>
-      <span class="tag">量比 2.26</span>
-      <span class="tag warn">逼近 MA20 支撑</span>
-    </div>
-    <div class="pos-desc">今日高开冲高至 <b>149.72</b> 后单边下行，盘中最低 <b>138.19</b>。与上周五 −4.97% 叠加，连续两日大幅回调。<b>逼近 MA20 支撑位（~137.4），仅距 +1.33%</b>。属系统性 beta 冲击叠加获利盘兑现，非个股基本面恶化。未触及止盈（187.23）/止损（93.61）。</div>
-    <div class="discipline-tag">⚠ 未触及纪律线，按既有纪律继续观察</div>
-  </div>
-
-  <div class="pos-card down-border">
-    <div class="pos-head">
-      <span class="pn">示例股份</span><span class="pc">000002</span>
-      <span class="pp down">94.49 ▼6.34%</span>
-    </div>
-    <div class="pos-meta">
-      <span class="tag down">显著放量下跌</span>
-      <span class="tag">量比 3.44</span>
-      <span class="tag warn">换手 10.15% 极高</span>
-    </div>
-    <div class="pos-desc">早盘冲高至 <b>105.80</b> 后单边杀跌，最低 <b>93.50</b>。与上周五 −3.15% 叠加，两日累计回调约 <b>−9.3%</b>，前期过热的乖离率（上周五 bias20=+24.46%）正在快速均值回归。量价显示高位兑现压力极大，但距 MA10（~86.2）仍有 +9.6% 空间。未触及止盈（114.28）/止损（57.14）。</div>
-    <div class="discipline-tag">⚠ 连续两日大跌但均未触及纪律线，按既有纪律继续观察</div>
-  </div>
-
-  <div class="pos-card up-border">
-    <div class="pos-head">
-      <span class="pn">示例行业ETF</span><span class="pc">159001</span>
-      <span class="pp up">4.252 ▲2.53%</span>
-    </div>
-    <div class="pos-meta">
-      <span class="tag up">放量上涨</span>
-      <span class="tag">量比 3.43</span>
-      <span class="tag warn">距止盈 −6.3% 逼近</span>
-    </div>
-    <div class="pos-desc">盘中最高冲至 <b>4.419</b>，午后有所回落但维持红盘。<b>已突破上周五 20日新高压力位 4.206</b>。"卖铲人"逻辑在今日市场分化中继续获资金认可，但盘中冲高回落显示高位分歧加大。距止盈（4.54）仅 <b>−6.3%</b>，持续逼近中。</div>
-    <div class="discipline-tag">⚠ 距止盈线仅 −6.3%，请核对是否执行你自己的止盈纪律</div>
-  </div>
-</section>
-
-<!-- ============ ③ 技术位互动温度计(盘中特色核心) ============ -->
-<!--
-  模块: 技术位互动温度计 —— 承接昨晚晚间复盘参考位,盘中只做"现价 vs 昨晚位"的轻量对照
-  数据: 报告"技术位互动温度计"表 + 各持仓温度计解读段
-  形式: 每只持仓一张温度计卡: 现价 → 三条距离条(支撑/压力/纪律线) → 盘中量价定性
-        距离条零轴居中: 现价在参考位上方=红条向右(正值), 下方=绿条向左(负值);
-        "逼近"用警示色,"已突破"用 strength 紫色 + ✅
-  缺失时: 昨晚未复盘/节后首日→整块替换为"无昨晚参考位"提示卡,仅做盘中量价定性; 单只持仓某参考位缺失→该行隐藏; 量价定性缺失→该段"—"
--->
-<section class="sec">
-  <div class="sec-eye">step 1 · 技术位互动温度计</div>
-  <div class="sec-title">技术位互动温度计 <span class="sub">对照昨晚参考位 · 盘中不现算</span></div>
-  <div class="takeaway" style="margin-top:4px;">拿盘中现价去和昨晚算好的支撑/压力/纪律线做对照,只描述"现价相对位置和距离",不现算新指标。</div>
-
-  <!-- 示例科技 -->
-  <div class="thermo-card">
-    <div class="thermo-head">
-      <span class="tn">示例科技</span><span class="tc">000001</span>
-      <span class="tp down">139.23</span>
-    </div>
-    <!-- 距离条: 数值=现价相对参考位的距离百分比(正=上方,负=下方);宽度按本卡内 max|v|×1.15 归一内联到 style -->
-    <div class="dist-row">
-      <span class="dl">vs 支撑</span>
-      <div class="dr"><div class="zero"></div><div class="fill" style="left:50%;width:1.2%;background:var(--warn);"></div></div>
-      <span class="dv warn">+1.33% ⚠逼近</span>
-    </div>
-    <div class="dist-row">
-      <span class="dl">vs 压力</span>
-      <div class="dr"><div class="zero"></div><div class="fill" style="left:40.3%;width:9.7%;background:var(--down);"></div></div>
-      <span class="dv down">−10.9%</span>
-    </div>
-    <div class="dist-row">
-      <span class="dl">距止盈</span>
-      <div class="dr"><div class="zero"></div><div class="fill" style="left:27.1%;width:22.9%;background:var(--down);"></div></div>
-      <span class="dv down">−25.6%</span>
-    </div>
-    <div class="dist-row">
-      <span class="dl">距止损</span>
-      <div class="dr"><div class="zero"></div><div class="fill" style="left:50%;width:43.5%;background:var(--up);"></div></div>
-      <span class="dv up">+48.7%</span>
-    </div>
-    <div class="thermo-vol">
-      <b>放量下跌</b>，量比 2.26，高 149.72 → 低 138.19，冲高后单边下杀。今日最低 138.19 距 MA20（~137.4）仅差 0.8 元，为三只持仓中距支撑最近者。
-    </div>
-  </div>
-
-  <!-- 示例股份 -->
-  <div class="thermo-card">
-    <div class="thermo-head">
-      <span class="tn">示例股份</span><span class="tc">000002</span>
-      <span class="tp down">94.49</span>
-    </div>
-    <div class="dist-row">
-      <span class="dl">vs 支撑</span>
-      <div class="dr"><div class="zero"></div><div class="fill" style="left:50%;width:6.4%;background:var(--up);"></div></div>
-      <span class="dv up">+9.6%</span>
-    </div>
-    <div class="dist-row">
-      <span class="dl">vs 压力</span>
-      <div class="dr"><div class="zero"></div><div class="fill" style="left:41.0%;width:9.0%;background:var(--down);"></div></div>
-      <span class="dv down">−13.6%</span>
-    </div>
-    <div class="dist-row">
-      <span class="dl">距止盈</span>
-      <div class="dr"><div class="zero"></div><div class="fill" style="left:38.5%;width:11.5%;background:var(--down);"></div></div>
-      <span class="dv down">−17.3%</span>
-    </div>
-    <div class="dist-row">
-      <span class="dl">距止损</span>
-      <div class="dr"><div class="zero"></div><div class="fill" style="left:50%;width:43.5%;background:var(--up);"></div></div>
-      <span class="dv up">+65.4%</span>
-    </div>
-    <div class="thermo-vol">
-      <b>显著放量下跌</b>，量比 3.44，换手 10.15%，高 105.8 → 低 93.5，高位兑现压力极大。前期透支涨幅正在快速消化，但距 MA10 支撑仍有空间。
-    </div>
-  </div>
-
-  <!-- 示例行业ETF -->
-  <div class="thermo-card">
-    <div class="thermo-head">
-      <span class="tn">示例行业ETF</span><span class="tc">159001</span>
-      <span class="tp up">4.252</span>
-    </div>
-    <div class="dist-row">
-      <span class="dl">vs 支撑</span>
-      <div class="dr"><div class="zero"></div><div class="fill" style="left:50%;width:43.5%;background:var(--up);"></div></div>
-      <span class="dv up">+9.6%</span>
-    </div>
-    <div class="dist-row">
-      <span class="dl">vs 压力</span>
-      <div class="dr"><div class="zero"></div><div class="fill" style="left:50%;width:4.9%;background:var(--strength);"></div></div>
-      <span class="dv" style="color:var(--strength);">已突破 ✅</span>
-    </div>
-    <div class="dist-row">
-      <span class="dl">距止盈</span>
-      <div class="dr"><div class="zero"></div><div class="fill" style="left:21.5%;width:28.5%;background:var(--warn);"></div></div>
-      <span class="dv warn">−6.3% ⚠逼近</span>
-    </div>
-    <div class="thermo-vol">
-      <b>放量上涨</b>，量比 3.43，高 4.419 → 现 4.252，冲高回落但维持红盘。距止盈线仅 −6.3%，是本轮行情以来最接近止盈的位置。
-    </div>
-  </div>
-
-  <div class="ref-note">
-    <b>⚠ 参考位来源</b>：2026-06-26 晚间复盘移交的技术参考位。<b>参考位非下单指令</b>。未满最低持有 5 日的持仓即便跌破昨晚支撑，也只"标记观察/核对止损线"，不建议卖出。
-  </div>
-</section>
-
-<!-- ============ ④ 自选股提醒 ============ -->
-<!--
-  模块: 自选股提醒
-  数据: 报告"自选股提醒"节 —— 标的、现价/涨跌、异动描述
-  形式: 卡片列表,左侧 info 色条;出现明显异动时切 strength 色条 + 徽章
-  缺失时: 自选股节缺失→整块标"本次未提供自选股提醒"; 单只标的数据缺失→该字段"—"灰显
--->
-<section class="sec">
-  <div class="sec-eye">step 2 · 自选股</div>
-  <div class="sec-title">自选股提醒 <span class="sub">异动监控</span></div>
-
-  <div class="wl-card">
-    <div class="wh">示例电子 <span class="wc">000003</span><span class="tag down" style="margin-left:auto;">▼4.33%</span></div>
-    <div class="wd">现价 <b>178.99</b>，放量下跌（量比 2.12）。盘中高 190.57 → 低 175.00。<b>已跌破 MA20 支撑位（~184.1），下方 −2.78%⚠</b>。自上周五跌停（−10%）后今日继续下跌，两日累计约 −14%。MA20 是关键中期多空分水岭，盘中跌破后需观察收盘能否收回。继续跟踪。</div>
-  </div>
-</section>
-
-<!-- ============ ⑤ 大盘 / 资金流向 / 板块温度计 ============ -->
+<!-- ============ ② 大盘 / 资金流向 / 板块温度计 ============ -->
 <!--
   模块: 大盘指数情绪 + 实时资金流向 + 板块涨跌温度
   数据: 报告"大盘/资金流向/板块温度计"节
@@ -479,7 +216,7 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
   缺失时: 指数缺失→该格"—"灰显; 资金流向缺失→整块标"本次未提供资金流向"; 板块缺失→标"本次未提供板块数据"
 -->
 <section class="sec">
-  <div class="sec-eye">step 4 · 大盘温度</div>
+  <div class="sec-eye">step 1 · 大盘温度</div>
   <div class="sec-title">大盘 / 资金流向 / 板块温度 <span class="sub">盘中快照 · 非收盘</span></div>
 
   <!-- 指数小格 -->
@@ -551,38 +288,15 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
   <div class="banner info" style="margin-top:6px;">资金流向与板块涨跌为上午盘中快照（约 10:26），非收盘数据，仅供方向性参考。</div>
 </section>
 
-<!-- ============ ⑥ 宏观背景校准 ============ -->
+<!-- ============ ③ 短期机会发掘(独立分栏) ============ -->
 <!--
-  模块: 宏观背景校准
-  数据: 报告"宏观背景校准"节 —— 今日现象 ↔ 已知宏观背景的映射; 是否发现新 Tier 3 事件
-  形式: 映射条目卡(现象 → 对应宏观记忆条目); 末尾"未发现新 Tier 3 事件"或"已产出更新建议至队列"
-  缺失时: 整节缺失→标"本次未提供宏观背景校准"; 单条映射缺失→该卡"—"
--->
-<section class="sec">
-  <div class="sec-eye">step 3 · 宏观校准</div>
-  <div class="sec-title">宏观背景校准 <span class="sub">今日现象 ↔ 已知背景</span></div>
-
-  <div class="map-item">
-    <div class="mh">市场风格切换 → 医药大涨 / 科技分化</div>
-    <div class="mm">吻合上周五晚间复盘已识别的"科技内部剧烈分化 + 机构半年末锁收益调仓"逻辑（对应宏观记忆 <b>K_全球央行政策—美联储加息预期 + J_资本市场制度 + C_货币流动性—半年末效应</b>），资金从极度拥挤的科技主线向防御性板块做高低切换。属已知宏观背景框架内的结构性轮动，<b>不构成新 Tier 3 事件</b>。</div>
-  </div>
-  <div class="map-item">
-    <div class="mh">上证盘中跌破 4000 → 对应上周五情景分析</div>
-    <div class="mm">上周五晚间复盘对称情景明确写"若上证有效跌破 4000 并放量，需警惕中期趋势转弱"。今日盘中短暂刺破 4000（最低 3992.55）后快速拉回至 4032，属<b>"刺破后收复"而非"有效跌破"</b>，暂不作趋势转弱结论。下午最后半小时需观察 4000 整数关能否守住。</div>
-  </div>
-
-  <div class="banner info">今日未发现需要追加至宏观更新队列的新 Tier 3 级事件。示例国际公司A向白宫施压采购示例存储公司芯片属科技供应链层面的已知博弈延续（<b>I_国际形势—中美科技出口管制</b> 框架内）。</div>
-</section>
-
-<!-- ============ ⑦ 短期机会发掘(独立分栏) ============ -->
-<!--
-  模块: 短期机会发掘 —— 与持仓/自选的"中长期基本面/估值"判断标准分栏,不混用
+  模块: 短期机会发掘 —— 由 ashare-opportunity-discovery(scope=intraday) 产出
   数据: 报告"短期机会发掘"节
   形式: 分栏口径声明 → 机会卡列表(催化剂框架)
   缺失时: 整节缺失→标"本次未提供短期机会发掘"; 单条机会缺失→不渲染该卡
 -->
 <section class="sec">
-  <div class="sec-eye">step 5 · 短期机会</div>
+  <div class="sec-eye">step 2 · 短期机会</div>
   <div class="sec-title">短期机会发掘 <span class="sub">催化剂驱动 · 独立分栏</span></div>
 
   <div class="opp-split-note">
@@ -599,59 +313,11 @@ data: 首屏风格判断,持仓异动纪律核对,技术位互动温度计,自�
   </div>
 </section>
 
-<!-- ============ ⑧ 待办与收尾 ============ -->
-<!--
-  模块: 待办 —— 分"今天剩余时间(收盘前 15 分钟)"与"留待今晚晚间复盘"两栏
-  数据: 报告"待办"节
-  形式: 两栏卡片(移动端上下堆叠),每条带"›"前缀; 不建议仓促操作的措辞保留
-  缺失时: 整节缺失→标"本次未提供待办"; 单栏缺失→隐藏该卡
--->
-<section class="sec">
-  <div class="sec-eye">step 6 · 待办收尾</div>
-  <div class="sec-title">待办与收尾 <span class="sub">收盘前 15 分钟 + 留待晚间</span></div>
-
-  <div class="todo-grid">
-    <div class="todo-card now">
-      <h4>⏱ 今天剩余时间（收盘前 15 分钟）</h4>
-      <ul>
-        <li><b>示例科技</b>：观察能否守住 MA20（~137.4），若收盘跌破则明日早间需重点评估中期趋势结构。<b>不建议在剩余 15 分钟内仓促操作</b>，留待收盘后冷静判断。</li>
-        <li><b>示例股份</b>：今日换手率 10.15% 极高，连续两日放量下跌。<b>不建议盘中追加卖出</b>，等收盘确认位置后再纳入今晚晚间复盘评估。</li>
-        <li><b>示例行业ETF</b>：距止盈线仅 −6.3%，若尾盘再冲高可能进一步逼近。<b>仅提示核对止盈纪律，不替用户下结论</b>。</li>
-        <li><b>上证 4000 点</b>：观察收盘能否站稳 4000 点上方。</li>
-      </ul>
-    </div>
-    <div class="todo-card tonight">
-      <h4>🌙 留待今晚晚间完整复盘</h4>
-      <ul>
-        <li>示例科技 MA20 支撑有效性——今日盘中回调最值得深度评估的技术问题（今晚跑全量引擎后出结论）</li>
-        <li>示例股份连续两日大跌后的技术结构是否破坏（乖离快速收窄 + OBV 持续下行需引擎数据确认）</li>
-        <li>示例行业ETF 逼近止盈线的决策（今晚需结合引擎数据做纪律校准）</li>
-        <li>示例电子 MA20 有效跌破后中期逻辑是否生变（今晚跑引擎后评估）</li>
-        <li>今日医药板块异动是否具备持续性（今晚做板块轮动分析）</li>
-        <li>全球科技股情绪修复程度（今晚美股表现将决定明日 A 股开盘基调）</li>
-      </ul>
-    </div>
-  </div>
-</section>
-
-<!-- ============ ⑨ 宏观更新队列 ============ -->
-<!--
-  模块: 宏观更新队列
-  数据: 报告末尾"宏观更新队列"声明 —— 未发现新事件 / 已产出更新建议条目
-  形式: 单卡片; 空队列用 down 色强调"未发现"; 有条目则逐条列出
-  缺失时: 该声明缺失→整块标"本次未提供宏观更新队列声明"
--->
-<section class="sec">
-  <div class="sec-eye">queue · 宏观更新</div>
-  <div class="sec-title">宏观更新队列</div>
-  <div class="queue-box empty">本次未发现需要更新宏观记忆的新 Tier 3 事件。</div>
-</section>
-
 <!-- ============ 页脚：数据源说明 + 免责声明 ============ -->
 <footer id="disc">
-  <div class="meta">报告完成时间：2026-06-29 14:30–14:45 · 数据截止：盘中快照（非收盘）<br>数据源：实时快照 + 昨晚晚间复盘移交的技术参考位；资金流向/板块涨跌为上午 ~10:26 盘中快照</div>
+  <div class="meta">报告完成时间：2026-06-29 14:30–14:45 · 数据截止：盘中快照（非收盘）<br>数据源：实时快照；资金流向/板块涨跌为上午 ~10:26 盘中快照</div>
   <div class="disc">
-    <b>⚠️ 重要声明：</b>本看板数据为<b>盘中实时快照，非收盘数据</b>，仅供方向性参考。技术位互动温度计承接昨晚晚间复盘的参考位，<b>盘中不现算指标</b>；所有支撑/压力/均线价位均为参考位，<b>非下单指令</b>。触及纪律线仅提示"请核对是否执行你自己的纪律"，<b>不替用户下结论</b>。短期机会与中长期持仓<b>分栏呈现、口径不混用</b>，不构成操作建议。剩余交易时间约 15 分钟内不建议仓促操作。投资决策请自行判断。
+    <b>⚠️ 重要声明：</b>本看板数据为<b>盘中实时快照，非收盘数据</b>，仅供方向性参考。本看板为独立技能产出，<b>不读取持仓/自选股/宏观记忆，不承接昨晚技术参考位，也不向其他复盘技能回写</b>。短期机会与中长期持仓<b>分栏呈现、口径不混用</b>，<b>不构成操作建议</b>。投资决策请自行判断。
   </div>
 </footer>
 
