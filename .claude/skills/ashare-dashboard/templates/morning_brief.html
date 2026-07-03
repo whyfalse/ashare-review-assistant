@@ -25,6 +25,13 @@ data: 隔夜美股,VIX恐慌指数,中国概念股ADR,美债美元商品,欧洲�
   - 纪律保留位：参考位"非下单指令"、对称情景双向、短期机会与中长期持仓分栏、风险提示与免责声明，
     这些结构在模板里已预留，生成时填入数据源原文，不得为版面精简而删改口径。
   - VIX 恐慌指数是本看板的核心一级元素——首屏 Hero 专设 VIX KPI，并在隔夜美股详情区设专用卡片。
+  - 邮件兼容(与 evening_review.html 对齐):看板常经邮件发送,邮件客户端会删除 <script> 且对
+    <table>/@media max-width/transform/linear-gradient 处理不一致。本模板已避开:
+    ① 技术参考位与隔夜核对均用 div 卡片(.ref-card/.check-item),不用 <table> 不用 @media 切换;
+    ② VIX 仪表盘指示点用 margin-left:-6px 居中,不用 transform;
+    ③ VIX 卡片用纯色 var(--warn-soft),不用 linear-gradient 叠层;
+    ④ 不含 <script>,所有视觉宽度/状态在生成时即确定。生成时仍需遵守:不引入 <script>、
+       不引入 <table> 用于布局(如需表格数据请用 div 卡片)、不依赖 @media max-width 切换视图。
 -->
 <style>
   :root{
@@ -117,7 +124,7 @@ data: 隔夜美股,VIX恐慌指数,中国概念股ADR,美债美元商品,欧洲�
   .vix-gauge{flex:1; min-width:120px;}
   .vix-gauge .gl{display:flex; justify-content:space-between; font-size:10px; color:var(--faint); margin-bottom:3px; font-family:var(--fm);}
   .vix-gauge .gbar{height:6px; border-radius:3px; background:linear-gradient(to right, var(--down), var(--warn), var(--up)); position:relative;}
-  .vix-gauge .gdot{position:absolute; top:-3px; width:12px; height:12px; border-radius:50%; background:var(--text); border:2px solid var(--bg); transform:translateX(-50%);}
+  .vix-gauge .gdot{position:absolute; top:-3px; width:12px; height:12px; border-radius:50%; background:var(--text); border:2px solid var(--bg); margin-left:-6px;}
   .vix-zone{font-size:11.5px; margin-top:6px; padding:6px 9px; border-radius:6px; font-weight:600;}
   .vix-zone.panic{color:var(--up); background:var(--up-soft); border:1px solid var(--up-border);}
   .vix-zone.calm{color:var(--down); background:var(--down-soft); border:1px solid var(--down-border);}
@@ -151,7 +158,7 @@ data: 隔夜美股,VIX恐慌指数,中国概念股ADR,美债美元商品,欧洲�
   .macro-cell .ms{font-size:11px; color:var(--dim); margin-top:1px;}
 
   /* ===== VIX 专用卡片 ===== */
-  .vix-card{border:1px solid var(--warn-border); background:linear-gradient(135deg,var(--warn-soft),var(--panel));}
+  .vix-card{border:1px solid var(--warn-border); background:var(--warn-soft);}
   .vix-card .vh{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;}
   .vix-card .vn{font-family:var(--fd); font-weight:700; font-size:15px;}
   .vix-card .vv{font-family:var(--fm); font-size:36px; font-weight:900; line-height:1; margin:8px 0 4px;}
@@ -197,28 +204,16 @@ data: 隔夜美股,VIX恐慌指数,中国概念股ADR,美债美元商品,欧洲�
   .comp-row .cn{font-size:13px; font-weight:600;}
   .comp-row .ce{font-size:11.5px; color:var(--dim); margin-top:3px; line-height:1.7;}
 
-  /* ===== 持仓技术参考位表（宽屏表格 + 窄屏卡片） ===== */
-  .ref-table{width:100%; border-collapse:collapse; font-size:12px;}
-  .ref-table th,.ref-table td{padding:7px 6px; text-align:left; vertical-align:top; border-bottom:1px solid var(--border-soft);}
-  .ref-table th{font-size:11px; color:var(--faint); font-weight:500; white-space:nowrap;}
-  .ref-table td{font-family:var(--fm);}
-  .ref-table .rn{font-family:var(--fb); font-weight:600; color:var(--text);}
-  .ref-card-list{display:none;}
+  /* ===== 持仓技术参考位卡片(div 卡片,邮件友好,不用 <table> 不用 @media 切换) ===== */
+  .ref-card{background:var(--panel); border:1px solid var(--border); border-radius:9px; padding:11px 12px; margin-bottom:8px;}
+  .ref-card .rfh{font-size:13px; font-weight:600; margin-bottom:6px; display:flex; justify-content:space-between; align-items:baseline; gap:6px;}
+  .ref-card .rfh .rc{font-family:var(--fm); font-size:11px; color:var(--faint); font-weight:400;}
+  .ref-grid{display:grid; grid-template-columns:1fr 1fr; gap:5px 10px; font-size:11px;}
+  .ref-grid .rl{color:var(--faint);} .ref-grid .rv{font-family:var(--fm); color:var(--dim); text-align:right;}
   .ref-notes{margin-top:10px; border-top:1px dashed var(--border-soft); padding-top:10px;}
   .ref-notes p{font-size:11.5px; color:var(--dim); line-height:1.75; margin-bottom:4px;}
   .ref-notes p b{color:var(--text);}
   .nd-tag{font-size:11px; color:var(--faint); font-style:normal;}
-
-  @media (max-width:520px){
-    .ref-table{display:none;}
-    .ref-card-list{display:block;}
-    .ref-card-item{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:9px; padding:11px 12px; margin-bottom:8px;}
-    .ref-card-item .rch{display:flex; justify-content:space-between; align-items:baseline; gap:6px; margin-bottom:6px;}
-    .ref-card-item .rch .rcn{font-size:13px; font-weight:600;}
-    .ref-card-item .rch .rcc{font-family:var(--fm); font-size:14px; font-weight:700;}
-    .ref-grid{display:grid; grid-template-columns:1fr 1fr; gap:4px 8px; font-size:11px;}
-    .ref-grid .rl{color:var(--faint);} .ref-grid .rv{font-family:var(--fm); color:var(--dim); text-align:right;}
-  }
 
   /* ===== 短期机会（独立分栏） ===== */
   .opp-sec{border-left:3px solid var(--info); padding-left:10px; margin-left:-10px;}
@@ -231,20 +226,11 @@ data: 隔夜美股,VIX恐慌指数,中国概念股ADR,美债美元商品,欧洲�
   .opp-card .ocat{font-size:12px; color:var(--info); font-weight:600; margin-bottom:4px;}
   .opp-card p{font-size:12px; color:var(--dim); line-height:1.75;}
 
-  /* ===== 核对表 / 日程（宽屏表格 + 窄屏卡片） ===== */
-  .check-table{width:100%; border-collapse:collapse; font-size:12px;}
-  .check-table th,.check-table td{padding:7px 6px; text-align:left; vertical-align:top; border-bottom:1px solid var(--border-soft);}
-  .check-table th{font-size:11px; color:var(--faint); font-weight:500;}
-  .check-table td{color:var(--dim);}
-  .check-table .ci{font-weight:600; color:var(--text);}
-  .check-card-list{display:none;}
-  @media (max-width:520px){
-    .check-table{display:none;}
-    .check-card-list{display:block;}
-    .check-item{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:9px; padding:10px 12px; margin-bottom:8px;}
-    .check-item .ci-head{font-size:12.5px; font-weight:600; margin-bottom:4px;}
-    .check-item .ci-body{font-size:11.5px; color:var(--dim); line-height:1.7;}
-  }
+  /* ===== 隔夜核对卡片(div 卡片,邮件友好,不用 <table> 不用 @media 切换) ===== */
+  .check-item{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:9px; padding:10px 12px; margin-bottom:8px;}
+  .check-item .ci-head{font-size:12.5px; font-weight:600; margin-bottom:4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .check-item .ci-body{font-size:11.5px; color:var(--dim); line-height:1.7;}
+  .check-item .ci-body b{color:var(--text);}
 
   /* ===== 日程卡片 ===== */
   .sched-card{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:9px; padding:10px 12px; margin-bottom:7px;}
@@ -471,24 +457,59 @@ data: 隔夜美股,VIX恐慌指数,中国概念股ADR,美债美元商品,欧洲�
   </div>
   <div class="card">
     <div class="sec-panel-h" style="margin-bottom:8px;"><span class="sw" style="background:var(--info);"></span>持仓今日观察基准 <em class="nd-tag">（均为参考位，非下单指令）</em></div>
-    <table class="ref-table">
-      <thead><tr><th>标的</th><th>昨收</th><th>支撑位</th><th>压力位</th><th>均线关键位</th><th>过热/超卖警示</th></tr></thead>
-      <tbody>
-        <tr><td class="rn">上证指数</td><td>4,027</td><td>4,004（3次）→3,928</td><td>4,192（5次）</td><td>MA250≈3,914</td><td>ADX 18.7</td></tr>
-        <tr><td class="rn">示例科技 000001</td><td>147.28</td><td>137（MA20）→122</td><td>156（新高）</td><td>MA20≈137</td><td>—</td></tr>
-        <tr><td class="rn">示例股份 000002</td><td>100.89</td><td>95→86→81</td><td>109（新高）</td><td>MA10≈86</td><td><span class="tag warn">⚠ bias+24%</span></td></tr>
-        <tr><td class="rn">示例行业ETF 159001</td><td>4.15</td><td>3.88→3.61→3.24</td><td>4.21（新高）</td><td>MA10≈3.61</td><td><span class="tag warn">⚠⚠ RSI92+</span></td></tr>
-        <tr><td class="rn">示例电子 000003</td><td>187.09</td><td>184→138</td><td>241（新高）</td><td>MA20≈184</td><td><span class="tag down">跌停</span></td></tr>
-        <tr><td class="rn">示例能源 000004</td><td>20.74</td><td>18.88</td><td>24.03</td><td>MA250≈20.80（失守）</td><td><span class="tag down">RSI 25</span></td></tr>
-      </tbody>
-    </table>
-    <div class="ref-card-list">
-      <div class="ref-card-item"><div class="rch"><span class="rcn">上证指数</span><span class="rcc">4,027</span></div><div class="ref-grid"><div class="rl">支撑</div><div class="rv">4,004→3,928</div><div class="rl">压力</div><div class="rv">4,192</div><div class="rl">MA250</div><div class="rv">3,914</div><div class="rl">警示</div><div class="rv">ADX 18.7</div></div></div>
-      <div class="ref-card-item"><div class="rch"><span class="rcn">示例科技 000001</span><span class="rcc">147.28</span></div><div class="ref-grid"><div class="rl">支撑</div><div class="rv">137→122</div><div class="rl">压力</div><div class="rv">156</div><div class="rl">MA20</div><div class="rv">≈137</div><div class="rl">警示</div><div class="rv">—</div></div></div>
-      <div class="ref-card-item"><div class="rch"><span class="rcn">示例股份 000002</span><span class="rcc">100.89</span></div><div class="ref-grid"><div class="rl">支撑</div><div class="rv">95→86→81</div><div class="rl">压力</div><div class="rv">109</div><div class="rl">MA10</div><div class="rv">≈86</div><div class="rl">警示</div><div class="rv warn">⚠ bias+24%</div></div></div>
-      <div class="ref-card-item"><div class="rch"><span class="rcn">示例行业ETF 159001</span><span class="rcc">4.15</span></div><div class="ref-grid"><div class="rl">支撑</div><div class="rv">3.88→3.61→3.24</div><div class="rl">压力</div><div class="rv">4.21</div><div class="rl">MA10</div><div class="rv">≈3.61</div><div class="rl">警示</div><div class="rv warn">⚠⚠ RSI92+</div></div></div>
-      <div class="ref-card-item"><div class="rch"><span class="rcn">示例电子 000003</span><span class="rcc">187.09</span></div><div class="ref-grid"><div class="rl">支撑</div><div class="rv">184→138</div><div class="rl">压力</div><div class="rv">241</div><div class="rl">MA20</div><div class="rv">≈184</div><div class="rl">警示</div><div class="rv down">跌停</div></div></div>
-      <div class="ref-card-item"><div class="rch"><span class="rcn">示例能源 000004</span><span class="rcc">20.74</span></div><div class="ref-grid"><div class="rl">支撑</div><div class="rv">18.88</div><div class="rl">压力</div><div class="rv">24.03</div><div class="rl">MA250</div><div class="rv">≈20.80 失守</div><div class="rl">警示</div><div class="rv down">RSI 25</div></div></div>
+    <div class="ref-card">
+      <div class="rfh">上证指数 <span class="rc">昨收 4,027</span></div>
+      <div class="ref-grid">
+        <span class="rl">支撑位</span><span class="rv down">4,004（3次）→3,928</span>
+        <span class="rl">压力位</span><span class="rv up">4,192（5次）</span>
+        <span class="rl">均线关键位</span><span class="rv">MA250≈3,914</span>
+        <span class="rl">过热/超卖</span><span class="rv">ADX 18.7</span>
+      </div>
+    </div>
+    <div class="ref-card">
+      <div class="rfh">示例科技 000001 <span class="rc">昨收 147.28</span></div>
+      <div class="ref-grid">
+        <span class="rl">支撑位</span><span class="rv down">137（MA20）→122</span>
+        <span class="rl">压力位</span><span class="rv up">156（新高）</span>
+        <span class="rl">均线关键位</span><span class="rv">MA20≈137</span>
+        <span class="rl">过热/超卖</span><span class="rv faint">—</span>
+      </div>
+    </div>
+    <div class="ref-card">
+      <div class="rfh">示例股份 000002 <span class="rc">昨收 100.89</span></div>
+      <div class="ref-grid">
+        <span class="rl">支撑位</span><span class="rv down">95→86→81</span>
+        <span class="rl">压力位</span><span class="rv up">109（新高）</span>
+        <span class="rl">均线关键位</span><span class="rv">MA10≈86</span>
+        <span class="rl">过热/超卖</span><span class="rv warn">⚠ bias+24%</span>
+      </div>
+    </div>
+    <div class="ref-card">
+      <div class="rfh">示例行业ETF 159001 <span class="rc">昨收 4.15</span></div>
+      <div class="ref-grid">
+        <span class="rl">支撑位</span><span class="rv down">3.88→3.61→3.24</span>
+        <span class="rl">压力位</span><span class="rv up">4.21（新高）</span>
+        <span class="rl">均线关键位</span><span class="rv">MA10≈3.61</span>
+        <span class="rl">过热/超卖</span><span class="rv warn">⚠⚠ RSI92+</span>
+      </div>
+    </div>
+    <div class="ref-card">
+      <div class="rfh">示例电子 000003 <span class="rc">昨收 187.09</span></div>
+      <div class="ref-grid">
+        <span class="rl">支撑位</span><span class="rv down">184→138</span>
+        <span class="rl">压力位</span><span class="rv up">241（新高）</span>
+        <span class="rl">均线关键位</span><span class="rv">MA20≈184</span>
+        <span class="rl">过热/超卖</span><span class="rv down">跌停</span>
+      </div>
+    </div>
+    <div class="ref-card">
+      <div class="rfh">示例能源 000004 <span class="rc">昨收 20.74</span></div>
+      <div class="ref-grid">
+        <span class="rl">支撑位</span><span class="rv down">18.88</span>
+        <span class="rl">压力位</span><span class="rv up">24.03</span>
+        <span class="rl">均线关键位</span><span class="rv">MA250≈20.80（失守）</span>
+        <span class="rl">过热/超卖</span><span class="rv down">RSI 25</span>
+      </div>
     </div>
     <div class="ref-notes">
       <p><b>示例科技</b> 昨收 147.28，支撑 137（MA20）、压力 156 —— 今日若回踩 137 一带可观察是否缩量企稳（均为参考位，非下单指令）</p>
@@ -511,23 +532,11 @@ data: 隔夜美股,VIX恐慌指数,中国概念股ADR,美债美元商品,欧洲�
 <section class="sec">
   <div class="sec-eye">checkback · 隔夜核对</div>
   <div class="sec-title">昨晚隔夜观察事项核对 <span class="sub">逐条跟进 6/26 晚间复盘遗留</span></div>
-  <table class="check-table">
-    <thead><tr><th>事项</th><th>隔夜/周末进展</th><th>结论</th></tr></thead>
-    <tbody>
-      <tr><td class="ci">全球科技股情绪</td><td>美股周五费城半导体暴跌 5.29%，纳指周跌 4.60%；但 A50 期货 +0.82% 反弹</td><td><span class="tag warn">🔄 并入观察清单</span></td></tr>
-      <tr><td class="ci">示例股份（000002）</td><td>周末未出现新的负面公告。示例公司丙 103 亿封测扩产形成行业正面共振</td><td><span class="tag info">✅ 无新增负面</span></td></tr>
-      <tr><td class="ci">示例电子（000003）</td><td>6/26 跌停后周末无新公告。此前谣言已在 6/8 澄清</td><td><span class="tag warn">🔄 并入观察清单</span></td></tr>
-      <tr><td class="ci">碳酸锂期货</td><td>全周 -9.33%。15 万附近下游备库积极性提升</td><td><span class="tag warn">🔄 并入观察清单</span></td></tr>
-      <tr><td class="ci">季末流动性</td><td>央行 6/29 隔夜逆回购正式操作，平抑半年末波动</td><td><span class="tag info">✅ 已解释</span></td></tr>
-    </tbody>
-  </table>
-  <div class="check-card-list">
-    <div class="check-item"><div class="ci-head"><span class="tag warn">🔄 并入</span> 全球科技股情绪</div><div class="ci-body">美股周五费城半导体暴跌 5.29%，纳指周跌 4.60%；但 A50 期货 +0.82% 反弹。海外科技情绪<b>继续走弱</b>。</div></div>
-    <div class="check-item"><div class="ci-head"><span class="tag info">✅ 已解释</span> 示例股份（000002）</div><div class="ci-body">周末未出现新的负面公告。示例公司丙 103 亿封测扩产形成行业正面共振。<b>无新增负面</b>。</div></div>
-    <div class="check-item"><div class="ci-head"><span class="tag warn">🔄 并入</span> 示例电子（000003）</div><div class="ci-body">跌停后周末无新公告。跌停更可能为<b>市场行为而非基本面利空</b>。</div></div>
-    <div class="check-item"><div class="ci-head"><span class="tag warn">🔄 并入</span> 碳酸锂期货</div><div class="ci-body">全周 -9.33%。<b>跌势延续但接近关键支撑区</b>（15 万整数关）。</div></div>
-    <div class="check-item"><div class="ci-head"><span class="tag info">✅ 已解释</span> 季末流动性</div><div class="ci-body">央行 6/29 隔夜逆回购正式操作，对冲工具就位。</div></div>
-  </div>
+  <div class="check-item"><div class="ci-head"><span class="tag warn">🔄 并入观察清单</span> 全球科技股情绪</div><div class="ci-body">美股周五费城半导体暴跌 5.29%，纳指周跌 4.60%；但 A50 期货 +0.82% 反弹。海外科技情绪<b>继续走弱</b>。</div></div>
+  <div class="check-item"><div class="ci-head"><span class="tag info">✅ 无新增负面</span> 示例股份（000002）</div><div class="ci-body">周末未出现新的负面公告。示例公司丙 103 亿封测扩产形成行业正面共振。<b>无新增负面</b>。</div></div>
+  <div class="check-item"><div class="ci-head"><span class="tag warn">🔄 并入观察清单</span> 示例电子（000003）</div><div class="ci-body">跌停后周末无新公告。跌停更可能为<b>市场行为而非基本面利空</b>。</div></div>
+  <div class="check-item"><div class="ci-head"><span class="tag warn">🔄 并入观察清单</span> 碳酸锂期货</div><div class="ci-body">全周 -9.33%。<b>跌势延续但接近关键支撑区</b>（15 万整数关）。</div></div>
+  <div class="check-item"><div class="ci-head"><span class="tag info">✅ 已解释</span> 季末流动性</div><div class="ci-body">央行 6/29 隔夜逆回购正式操作，对冲工具就位。</div></div>
 </section>
 
 <!-- ============ ⑧ 今日已知日程 ============ -->
