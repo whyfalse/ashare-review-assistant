@@ -10,7 +10,7 @@ description: 对A股大盘、行业板块、具体个股或持仓组合进行全
 本skill遵守 `../../../references/boundaries.md` 的全部共享边界,正文不再逐条复述。本skill特有边界:
 
 1. **风险等级是"风险信息",不是"操作指令"**:只给低/中/高风险等级与方向性判断,不做精确百分比/点位预测;最终仓位决策权在用户。用户情绪化(被套/急于加仓)时尤其不能用更确定的语言去迎合。
-2. **不硬编码数据源**:本skill只规定"需要哪类信息"和"该怎么判断",具体用哪个工具取数由 `data-source-config.json` 的 `routing` 决定(流程见 `../../../references/data-source-priority.md`),不在本文件写死任何工具名/API/MCP。
+2. **不硬编码数据源**:本skill只规定"需要哪类信息"和"该怎么判断",具体用哪个工具取数由 `data-source-config.json` 的 `routing` 决定(配置预检由 `review-orchestrator` 在调用本技能前完成),不在本文件写死任何工具名/API/MCP。
 
 ## 这个skill做什么
 
@@ -54,7 +54,7 @@ description: 对A股大盘、行业板块、具体个股或持仓组合进行全
 
 ### 0.3 取数计划
 
-取数桶路由与 gate 流程由 `review-orchestrator` 在调用本技能前已完成,详见 `../../../references/data-source-priority.md`,本技能不重复。取数过程中记录每类数据实际走的工具(primary 还是 fallback),供末尾"数据来源"小节使用。
+取数桶路由与 gate 流程由 `review-orchestrator` 在调用本技能前已完成(读 `data-source-config.json` + 轻量校验 + 失效时重编排),本技能直接复用配置,不重复。取数过程中记录每类数据实际走的工具(primary 还是 fallback),供末尾"数据来源"小节使用。
 
 ## 六层风险框架
 

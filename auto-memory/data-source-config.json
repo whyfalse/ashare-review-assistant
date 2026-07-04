@@ -1,0 +1,155 @@
+{
+  "version": 2,
+  "generated_at": "2026-07-04",
+  "next_review_due": "2026-08-03",
+  "probe_summary": "Wind MCP 全部7个server_type可用(A股/港股/美股/基金/指数/债券/公告新闻/宏观EDB);阿里云WebSearch MCP配置就绪;deep-research/WebSearch/WebFetch可用。wind-find-finance-skill为发现安装路由器,非数据工具。",
+  "tools": [
+    {
+      "id": "wind_mcp",
+      "kind": "professional",
+      "invoke": "skill:wind-mcp-skill (node scripts/cli.mjs call <server_type> <tool_name> <params_json>，调用前先cd到skill目录C:/Users/97969/.claude/skills/wind-mcp-skill)",
+      "status": "available",
+      "markets": ["A股", "港股", "美股", "基金", "指数", "债券", "宏观EDB", "公告新闻"],
+      "not_covered": ["日股", "欧股", "汇率", "期货盘口", "加密货币"],
+      "data_types": ["行情", "K线", "分钟线", "财务", "股东", "事件", "技术", "风险", "基金档案", "基金持仓", "基金业绩", "指数成分", "指数基本面", "债券档案", "债券估值", "公告", "财报", "财经新闻", "宏观指标", "选股筛选"],
+      "verified_by": "2026-07-04 调用get_stock_quote查600519.SH分钟行情,返回完整242条数据,确认可用"
+    },
+    {
+      "id": "web_search",
+      "kind": "web_search",
+      "invoke": "builtin:WebSearch (通用搜索) / mcp:aliyun-websearch (阿里云WebSearch MCP) / skill:deep-research (深度研究,多源交叉验证) / builtin:WebFetch (单页抓取)",
+      "status": "available",
+      "markets": ["全球"],
+      "not_covered": [],
+      "data_types": ["新闻", "定性行情", "政策", "事件", "隔夜外盘"],
+      "verified_by": "aliyun-websearch MCP已配置(mcp.json);deep-research/WebSearch/WebFetch均为builtin可用"
+    },
+    {
+      "id": "wind_find",
+      "kind": "meta",
+      "invoke": "skill:wind-find-finance-skill (发现与安装路由器,不直接取数)",
+      "status": "available",
+      "markets": [],
+      "not_covered": [],
+      "data_types": [],
+      "verified_by": "skill已加载,确认是发现路由器,非数据工具,不编入routing"
+    }
+  ],
+  "routing": {
+    "cn_equity_quote": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd \"C:/Users/97969/.claude/skills/wind-mcp-skill\" && node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"<A股代码>\"}'",
+        "param_hint": "windcode=单个A股代码如600519.SH;单次只查一个标的;行情快照用get_stock_quote,K线用get_stock_kline(begin_date/end_date yyyyMMdd,period=day),技术指标用get_stock_technicals(question自然语言),估值/资金流向等用analytics_data.get_financial_data兜底",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {"tool_id": "web_search", "invoke": "builtin:WebSearch 或 skill:deep-research"}
+      ],
+      "gate": "必须先实际调用primary并记录返回后才允许走fallback;不允许跳过primary直接用fallback",
+      "notes": "精确数值优先Wind专业工具;多标的行情拆成多次调用后合并,不得用analytics_data省调用次数;fallback仅采信定性信息(涨跌/方向),精确数字注明未经专业源核对"
+    },
+    "cn_equity_fundamental": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd \"C:/Users/97969/.claude/skills/wind-mcp-skill\" && node scripts/cli.mjs call stock_data <tool_name> '{\"question\":\"<自然语言查询>\",\"lang\":\"中文\"}'",
+        "param_hint": "tool_name=get_stock_fundamentals(财务)/get_stock_equity_holders(股东)/get_stock_events(事件)/get_risk_metrics(风险)/get_stock_basicinfo(基本信息);question传自然语言",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {"tool_id": "web_search", "invoke": "builtin:WebSearch 或 skill:deep-research"}
+      ],
+      "gate": "必须先实际调用primary并记录返回后才允许走fallback;不允许跳过primary直接用fallback",
+      "notes": "财务/股东/事件类数据优先Wind专业工具;数据口径以Wind返回为准;fallback仅做定性参考"
+    },
+    "hk_us_equity": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd \"C:/Users/97969/.claude/skills/wind-mcp-skill\" && node scripts/cli.mjs call stock_data <tool_name> '<params_json>'",
+        "param_hint": "港股代码如00700.HK,美股代码如AAPL.O;行情get_stock_quote,K线get_stock_kline,筛选search_stocks,基本面NL工具同上",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {"tool_id": "web_search", "invoke": "builtin:WebSearch 或 skill:deep-research"}
+      ],
+      "gate": "必须先实际调用primary并记录返回后才允许走fallback;不允许跳过primary直接用fallback",
+      "notes": "港股/美股Wind覆盖;精确数值优先专业工具;fallback仅采信定性信息"
+    },
+    "fund_index_bond": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd \"C:/Users/97969/.claude/skills/wind-mcp-skill\" && node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'",
+        "param_hint": "基金用fund_data(ETF/LOF/场外),指数用index_data,债券用bond_data;行情get_quote,K线get_kline,档案/基本面用NL工具;基金windcode如588200.SH(ETF)/005827.OF(场外),指数000300.SH,债券按代码",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {"tool_id": "web_search", "invoke": "builtin:WebSearch 或 skill:deep-research"}
+      ],
+      "gate": "必须先实际调用primary并记录返回后才允许走fallback;不允许跳过primary直接用fallback",
+      "notes": "基金/指数/债券Wind全覆盖;精确数值优先专业工具"
+    },
+    "cn_tech_daily": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd \"C:/Users/97969/.claude/skills/wind-mcp-skill\" && node scripts/cli.mjs call stock_data get_stock_kline '{\"windcode\":\"<A股代码>\",\"begin_date\":\"<yyyyMMdd>\",\"end_date\":\"<yyyyMMdd>\",\"period\":\"day\"}'",
+        "param_hint": "技术引擎日线period=day;begin_date/end_date格式yyyyMMdd;单次只查一个标的;多标的拆成多次调用;返回OHLCV用于技术指标计算",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {"tool_id": "web_search", "invoke": "builtin:WebSearch 或 skill:deep-research"}
+      ],
+      "gate": "必须先实际调用primary并记录返回后才允许走fallback;不允许跳过primary直接用fallback",
+      "notes": "技术引擎日线优先Wind K线;不可用或数据不足时走fallback;fallback仅采信大致价格区间"
+    },
+    "macro_indicator": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd \"C:/Users/97969/.claude/skills/wind-mcp-skill\" && node scripts/cli.mjs call economic_data get_economic_data '{\"metricIdsStr\":\"<自然语言指标描述>\"}'",
+        "param_hint": "metricIdsStr传自然语言如'CPI同比增速''PMI';可选beginDate/endDate(yyyyMMdd)/freq(month/quarter/year);单次可传多个指标用逗号或自然语言串联",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {"tool_id": "web_search", "invoke": "builtin:WebSearch 或 skill:deep-research"}
+      ],
+      "gate": "必须先实际调用primary并记录返回后才允许走fallback;不允许跳过primary直接用fallback",
+      "notes": "宏观EDB指标优先Wind economic_data;fallback仅补定性,精确数值注明未经专业源核对"
+    },
+    "announcement_doc": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd \"C:/Users/97969/.claude/skills/wind-mcp-skill\" && node scripts/cli.mjs call financial_docs get_company_announcements '{\"query\":\"<公告/财报查询>\",\"top_k\":<数量>}'",
+        "param_hint": "query传自然语言如'贵州茅台2025年报';top_k默认10可选;返回公告/年报/季报/招股书等原文或摘要",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {"tool_id": "web_search", "invoke": "builtin:WebSearch 或 skill:deep-research"}
+      ],
+      "gate": "必须先实际调用primary并记录返回后才允许走fallback;不允许跳过primary直接用fallback",
+      "notes": "公告/财报文档优先Wind financial_docs;搜索仅补漏,注明来源未经Wind核对"
+    },
+    "news_policy": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd \"C:/Users/97969/.claude/skills/wind-mcp-skill\" && node scripts/cli.mjs call financial_docs get_financial_news '{\"query\":\"<新闻/政策查询>\",\"top_k\":<数量>}'",
+        "param_hint": "query传自然语言;top_k默认10可选;返回财经新闻/快讯/政策报道",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {"tool_id": "web_search", "invoke": "builtin:WebSearch 或 mcp:aliyun-websearch 或 skill:deep-research"}
+      ],
+      "gate": "消息资讯类必须多工具组合交叉印证:先调primary拿权威底座,再用fallback补时效广度;不允许只用单一web_search。primary失败时才退化为'仅联网搜索'并注明'未经专业资讯源交叉核对'",
+      "notes": "Wind financial_news拿可核对来源+联网搜索补时效广度,交叉印证;政策/事件类以官方来源为准"
+    },
+    "overseas_uncovered": {
+      "primary": {
+        "tool_id": "web_search",
+        "invoke": "builtin:WebSearch 或 skill:deep-research",
+        "param_hint": "日股/欧股/汇率/期货/隔夜外盘等Wind不覆盖的市场;只采信定性信息(涨跌/方向/大致区间)",
+        "must_try_before_fallback": false
+      },
+      "fallbacks": [],
+      "gate": "此桶无专业源,primary即web_search;只采信定性信息,精确数字注明未经专业源核对",
+      "notes": "日股/欧股/汇率/期货/隔夜外盘Wind不覆盖,只能联网搜索;精确数字标注'未经专业源核对',不得当作可靠行情数据填报"
+    }
+  }
+}

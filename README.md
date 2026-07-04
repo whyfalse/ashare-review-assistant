@@ -135,7 +135,7 @@
 
 ## 技术面深度体系
 
-三个复盘技能统一引用 `references/technical-depth-guide.md`：
+三个复盘技能各自内联技术深度配方（引擎调用方法、字段口径、四维卡片写法、降级规则均已写入各自 SKILL.md）：
 
 - **晚间复盘**（唯一全量跑技术引擎的时段）：大盘四大指数 + 全部持仓/自选股，产出四维深度卡片
 - **早间推送**（不现算）：承接昨晚技术参考位，只做隔夜外盘定性
@@ -159,8 +159,7 @@
 data/                    运行时个人数据（持仓/自选股/宏观记忆/更新队列，不入库）
 output/                  技能输出产物（报告/看板/技术缓存 _tech_cache/）
 references/              跨技能共享规则
-  boundaries.md (§1-§8)  data-source-priority.md  technical-depth-guide.md
-  message-classification.md  tier3-event-handling.md  holding-discipline.md (已废弃)
+  boundaries.md (§1-§8)  message-classification.md  tier3-event-handling.md
 scheduler/               定时调度入口 + 邮件模块 + 配置文件
   run_review.py  email_sender.py  config.yaml  config.example.yaml
 templates/               数据模板（从模板复制到 data/ 初始化）

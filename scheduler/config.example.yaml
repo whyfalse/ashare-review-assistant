@@ -47,6 +47,7 @@ claude:
   allowed_tools: []                  # permission_mode 非 bypass 时, 在此列出放行工具
   model: ""                          # 留空用默认模型, 或填 opus / sonnet 等别名
   timeout_seconds: 1800              # 单次复盘超时(秒), 超时判失败
+  dashboard_timeout_seconds: 600     # 看板兜底渲染调用超时(秒); 看板是展示层, 默认比复盘短
   extra_args: []                     # 透传给 claude 的额外参数, 如 ["--effort","high"]
 
 # ---------- 邮件发送 ----------

@@ -1,6 +1,6 @@
 # data-source-config.json 结构说明
 
-本文件定义 `ashare-data-source-config` 写入 auto-memory 的 `data-source-config.json` 结构。各复盘技能按 `references/data-source-priority.md` 读取本配置取数。
+本文件定义 `ashare-data-source-config` 写入 auto-memory 的 `data-source-config.json` 结构。各复盘/分析技能直接读 `data-source-config.json` 取数(取数计划表 gate 格式已由各技能 SKILL.md 内联自洽);本配置技能编排 routing 时遵循下方"编排纪律"小节的优先级原则。
 
 ## 顶层结构
 

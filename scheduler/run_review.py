@@ -53,6 +53,17 @@ SKILL_TO_DASHBOARD_PREFIX = {
     "ashare-weekly-review": "weekly_review",
 }
 
+# 复盘技能 → 落盘报告目录与文件名前缀(技能"输出保存"环节写盘的命名规则)
+# 用于在无头 Claude 只回了一段摘要时, 回读技能落盘的完整报告作为邮件正文。
+# 注: 各复盘技能(含 weekly-review)报告文件名里的日期均取运行当天,
+# 但为兼容手动补跑等情形, 这里仍只按前缀 + 最近修改时间定位, 不假定日期。
+SKILL_TO_REPORT = {
+    "ashare-morning-brief": ("ashare-morning-brief", "morning_brief"),
+    "ashare-intraday-review": ("ashare-intraday-review", "intraday_review"),
+    "ashare-evening-review": ("ashare-evening-review", "evening_review"),
+    "ashare-weekly-review": ("ashare-weekly-review", "weekly_review"),
+}
+
 _LOG_LINES = []
 
 
@@ -104,30 +115,13 @@ def is_trading_day(now: dt.datetime, cfg: dict) -> bool:
     return result
 
 
-# ---------- 调用 claude 无头执行技能(通过 review-orchestrator agent 编排) ----------
-def run_skill(skill: str, cfg: dict, dashboard_enabled: bool = False) -> str:
-    """通过 review-orchestrator agent 调用 claude 执行技能, 返回报告正文; 失败抛 RuntimeError。
+# ---------- 调用 claude 无头执行(共用底座) ----------
+def _run_claude(prompt: str, ccfg: dict, timeout: int, label: str) -> str:
+    """以无头模式(`claude -p`)执行一段 prompt, 返回 stdout 文本; 失败抛 RuntimeError。
 
-    review-orchestrator 相比直接调 Skill 多了三层自动接力:
-      1. 复盘后自动检查宏观更新队列, 有新事件则调用 ashare-macro-context 消费落库
-      2. 风险识别接力: 复盘后命中一票否决级红旗苗头等风险信号, 接力调用
-         ashare-risk-assessment 对相关标的深挖; 周复盘时先做一次组合风险预跑再执行周复盘
-      3. (周复盘时) 自动触发 ashare-macro-context 完整维护模式
+    run_skill(执行复盘技能) 与 ensure_dashboard(兜底渲染看板) 共用此底座,
+    差别只在 prompt 与超时。
     """
-    ccfg = cfg.get("claude", {}) or {}
-    if ccfg.get("prompt"):
-        prompt = ccfg["prompt"].format(skill=skill)
-    else:
-        prompt = (
-            f"请通过 review-orchestrator agent 执行 {skill} 技能。"
-            f"要求：输出完整中文报告，自动接力宏观记忆更新"
-        )
-    if dashboard_enabled:
-        prompt += (
-            "，并调用 ashare-dashboard 将上述报告渲染为移动端数据看板 HTML 文件，"
-            "保存到 output/ashare-dashboard/ 目录。"
-        )
-
     # Windows 上 npm 全局安装的 claude 是 claude.cmd 垫片; subprocess 不带 shell=True
     # 时只按 .exe 查找会报 [WinError 2]。用 shutil.which 解析完整路径(PATHEXT 会命中
     # .cmd/.bat), 既跨平台, 又能在未安装时给出清晰提示。
@@ -153,8 +147,7 @@ def run_skill(skill: str, cfg: dict, dashboard_enabled: bool = False) -> str:
         cmd += ["--model", ccfg["model"]]
     cmd += list(ccfg.get("extra_args") or [])
 
-    timeout = int(ccfg.get("timeout_seconds", 1800))
-    log(f"调用 claude 执行技能 {skill} (超时 {timeout}s): {' '.join(cmd[:3])} ...")
+    log(f"{label} (超时 {timeout}s): {' '.join(cmd[:3])} ...")
 
     try:
         proc = subprocess.run(
@@ -175,20 +168,58 @@ def run_skill(skill: str, cfg: dict, dashboard_enabled: bool = False) -> str:
     out = (proc.stdout or "").strip()
     if not out:
         raise RuntimeError("claude 输出为空")
-    log(f"技能执行完成, 报告长度 {len(out)} 字符")
+    return out
+
+
+# ---------- 调用 claude 无头执行技能(通过 review-orchestrator agent 编排) ----------
+def run_skill(skill: str, cfg: dict) -> str:
+    """通过 review-orchestrator agent 调用 claude 执行技能, 返回 stdout 文本; 失败抛 RuntimeError。
+
+    review-orchestrator 相比直接调 Skill 多了三层自动接力:
+      1. 复盘后自动检查宏观更新队列, 有新事件则调用 ashare-macro-context 消费落库
+      2. 风险识别接力: 复盘后命中一票否决级红旗苗头等风险信号, 接力调用
+         ashare-risk-assessment 对相关标的深挖; 周复盘时先做一次组合风险预跑再执行周复盘
+      3. (周复盘时) 自动触发 ashare-macro-context 完整维护模式
+
+    注意: 无头模式下 review-orchestrator 往往只在 stdout 回一段简短摘要, 完整报告由
+    技能落盘到 output/。本函数返回的 stdout 仅供日志参考, 邮件正文应优先取落盘报告
+    (见 resolve_report_body)。
+
+    看板渲染不在此函数内处理——统一由 ensure_dashboard() 在报告落盘后独立调用,
+    避免编排链路过长导致看板步骤被截断。
+    """
+    ccfg = cfg.get("claude", {}) or {}
+    if ccfg.get("prompt"):
+        prompt = ccfg["prompt"].format(skill=skill)
+    else:
+        prompt = f"请通过 review-orchestrator agent 执行 {skill} 技能，输出完整中文报告"
+    # 看板渲染已从主 prompt 移除，统一由 ensure_dashboard() 兜底单独调用。
+    # 原因是 review-orchestrator 在无头模式下的编排链路太长（数据源预检→风险预跑→
+    # 复盘→宏观维护→看板），看板作为最后一步经常来不及完成就返回了，导致首轮
+    # 无 HTML 产出。改为复盘+看板分离调用：主调用专注复盘，看板由兜底机制
+    # 在报告落盘后独立渲染，每次调用更短更可靠。
+
+    timeout = int(ccfg.get("timeout_seconds", 1800))
+    out = _run_claude(prompt, ccfg, timeout, f"调用 claude 执行技能 {skill}")
+    log(f"技能执行完成, stdout 长度 {len(out)} 字符")
     return out
 
 
 # ---------- 数据看板 HTML 文件查找 ----------
-def find_dashboard_html(skill: str, date_str: str) -> Optional[Path]:
-    """在 output/ashare-dashboard/ 中查找指定技能和日期生成的 HTML 文件。
+def find_dashboard_html(skill: str, since_ts: Optional[float] = None) -> Optional[Path]:
+    """在 output/ashare-dashboard/ 中查找指定技能生成的 HTML 文件, 返回最新一份。
+
+    按模板前缀(如 ashare-weekly-review → weekly_review)匹配 `{prefix}_dashboard_*.html`,
+    取最近修改的一份。不按文件名里的日期做严格匹配——各技能看板文件名的日期口径
+    可能不同(取自数据源内容或运行当天), 严格按当天匹配会漏掉看板, 故统一按 mtime 取最新。
 
     Args:
-        skill: 复盘技能名, 用于匹配模板前缀 (如 ashare-evening-review → evening_review)
-        date_str: 日期字符串 YYYY-MM-DD
+        skill: 复盘技能名, 用于匹配模板前缀
+        since_ts: 可选, 仅保留 mtime >= since_ts 的文件(用于限定"本次运行期间生成"的看板,
+                  避免误用上一轮遗留的旧看板); None 则不限时间, 取最新一份
 
     Returns:
-        匹配的最新 HTML 文件路径, 未找到则返回 None
+        匹配的最新 HTML 文件路径, 未找到则 None
     """
     dashboard_dir = PROJECT_ROOT / "output" / "ashare-dashboard"
     if not dashboard_dir.is_dir():
@@ -198,17 +229,132 @@ def find_dashboard_html(skill: str, date_str: str) -> Optional[Path]:
     if not prefix:
         return None
 
-    pattern = f"{prefix}_dashboard_{date_str}"
-    matches = sorted(
-        [f for f in dashboard_dir.glob("*.html") if f.stem.startswith(pattern)],
-        key=lambda f: f.stat().st_mtime,
-        reverse=True,
-    )
+    stem_prefix = f"{prefix}_dashboard_"
+    matches = []
+    for f in dashboard_dir.glob("*.html"):
+        if not f.stem.startswith(stem_prefix):
+            continue
+        try:
+            mtime = f.stat().st_mtime
+        except OSError:
+            continue
+        if since_ts is not None and mtime < since_ts:
+            continue
+        matches.append((mtime, f))
+    matches.sort(key=lambda x: x[0], reverse=True)
     if matches:
-        log(f"找到数据看板文件: {matches[0]}")
-        return matches[0]
-    log(f"未找到匹配的数据看板文件 (prefix={prefix}, date={date_str})")
+        log(f"找到数据看板文件: {matches[0][1]}")
+        return matches[0][1]
+    log(f"未找到匹配的数据看板文件 (prefix={prefix}, since_ts={since_ts})")
     return None
+
+
+# ---------- 落盘报告回读 ----------
+def find_report_markdown(skill: str, since_ts: Optional[float] = None) -> Optional[Path]:
+    """定位指定复盘技能最近一次落盘的报告 markdown。
+
+    各复盘技能在"输出保存"环节把完整报告写到 output/ashare-<skill>/ 下, 文件名形如
+    `<prefix>_[日期].md`, 日期均取运行当天。这里按前缀 + 最近修改时间定位, 不假定
+    日期, 以兼容手动补跑(当天生成、文件名日期非当天)等情形。
+
+    Args:
+        since_ts: 可选, 仅保留 mtime >= since_ts 的文件(用于限定"本次运行期间落盘"的报告,
+                  避免本次技能没存盘时误用上一轮的旧报告); None 则不限时间, 取最新一份
+    """
+    info = SKILL_TO_REPORT.get(skill)
+    if not info:
+        return None
+    report_dir = PROJECT_ROOT / "output" / info[0]
+    if not report_dir.is_dir():
+        return None
+    stem_prefix = f"{info[1]}_"
+    matches = []
+    for f in report_dir.glob("*.md"):
+        if not f.stem.startswith(stem_prefix):
+            continue
+        try:
+            mtime = f.stat().st_mtime
+        except OSError:
+            continue
+        if since_ts is not None and mtime < since_ts:
+            continue
+        matches.append((mtime, f))
+    matches.sort(key=lambda x: x[0], reverse=True)
+    return matches[0][1] if matches else None
+
+
+def resolve_report_body(skill: str, stdout_report: str, run_start_ts: float) -> str:
+    """决定邮件正文用哪份文本: 优先取技能本次落盘的完整报告, stdout 仅作兜底。
+
+    无头模式下调 review-orchestrator agent 做完整复盘时, agent 往往只在 stdout 回一段
+    简短摘要(如"已完成, 报告已保存到..."), 真正的完整报告在落盘的 markdown 里。若直接
+    用 stdout 作邮件正文, 用户只会收到一两百字的摘要。故当本次落盘报告比 stdout 更长时,
+    改用落盘报告全文。
+
+    只认 mtime >= run_start_ts(本次运行期间落盘)的报告, 避免本次技能没存盘时误发上一轮
+    旧报告; 本次没有新报告则退回 stdout。
+    """
+    md_path = find_report_markdown(skill, since_ts=run_start_ts)
+    if not md_path:
+        return stdout_report
+    try:
+        saved = md_path.read_text(encoding="utf-8").strip()
+    except OSError as e:
+        log(f"读取落盘报告失败 {md_path.name}: {e}")
+        return stdout_report
+    if len(saved) > len(stdout_report):
+        log(f"使用落盘报告作为邮件正文: {md_path.name} ({len(saved)} 字符, stdout 仅 {len(stdout_report)} 字符)")
+        return saved
+    return stdout_report
+
+
+# ---------- 数据看板兜底生成 ----------
+def ensure_dashboard(skill: str, cfg: dict, run_start_ts: float) -> Optional[Path]:
+    """确保本次运行产出了数据看板 HTML, 没有则兜底单独跑一次 ashare-dashboard。
+
+    review-orchestrator 的复盘链路较长(周复盘: 风险预跑 → 周复盘 → 宏观完整维护 → 看板),
+    无头模式下有时走不到最后的看板步骤就返回了, 导致 output/ashare-dashboard/ 为空。
+    看板是纯展示层(读落盘报告 → 套模板 → 出 HTML), 不依赖编排链路的上下文, 因此这里
+    在首轮没产出看板时, 单独发一个聚焦的 claude 调用: 直接读落盘报告文件, 调
+    ashare-dashboard 渲染。失败不抛错, 由调用方退回纯文本邮件。
+    """
+    # 首轮若已生成看板(本次运行期间写盘), 直接用, 不再额外发起调用。
+    existing = find_dashboard_html(skill, since_ts=run_start_ts)
+    if existing:
+        return existing
+
+    report_path = find_report_markdown(skill, since_ts=run_start_ts)
+    if not report_path:
+        log("未找到落盘报告, 无法兜底生成数据看板")
+        return None
+
+    ccfg = cfg.get("claude", {}) or {}
+    # 看板渲染只是展示层, 给一个比完整复盘短的超时(默认 600s), 也可在 config 单独配。
+    timeout = int(ccfg.get("dashboard_timeout_seconds", 600))
+    # 显式指定模板目录, 避免 headless 模式下 skill 从项目根找 templates/ 找不到
+    # (ashare-dashboard 技能使用 .claude/skills/ashare-dashboard/templates/ 下的模板)。
+    template_dir = str(PROJECT_ROOT / ".claude" / "skills" / "ashare-dashboard" / "templates")
+    prompt = (
+        f"请读取报告文件 {report_path} 的完整内容作为数据源，调用 ashare-dashboard 技能，"
+        f"将其渲染为移动端数据看板 HTML 单文件，保存到 output/ashare-dashboard/ 目录。"
+        f"文件名按 ashare-dashboard 技能规则从匹配到的模板派生。"
+        f"模板目录位于 {template_dir}，其中已有以下模板文件：weekly_review.html、"
+        f"evening_review.html、intraday_review.html、morning_brief.html，"
+        f"请按报告类型匹配对应模板。只做展示层渲染："
+        f"不重新取数、不做新分析、不编造数据源里没有的内容，数据缺失按模板规则占位。"
+    )
+    log(f"首轮未产出数据看板, 启动看板渲染兜底调用 (超时 {timeout}s)")
+    try:
+        out = _run_claude(prompt, ccfg, timeout, "看板渲染兜底调用")
+        # 记录 stdout 摘要便于排查(完整输出可能很长, 截取前 500 字符)
+        preview = out[:500]
+        if len(out) > 500:
+            preview += f"...(共 {len(out)} 字符)"
+        log(f"看板渲染兜底调用输出: {preview}")
+    except RuntimeError as e:
+        log(f"看板渲染兜底调用失败: {e}")
+        return None
+    return find_dashboard_html(skill, since_ts=run_start_ts)
 
 
 # ---------- 风险报告追加(看板邮件用) ----------
@@ -322,16 +468,20 @@ def main():
     dashboard_enabled = bool(dashboard_cfg.get("enabled", False))
     prefix = ecfg.get("subject_prefix", "[A股复盘]")
     date_str = now.strftime("%Y-%m-%d")
+    # 记录本次运行起点, 用于"只认本次运行期间新生成的看板", 避免误用上一轮遗留文件。
+    run_start_ts = now.timestamp()
     try:
-        report = run_skill(skill, cfg, dashboard_enabled=dashboard_enabled)
+        report = run_skill(skill, cfg)
         if not args.no_email:
+            # 无头 Claude 的 stdout 常只是一段摘要, 完整报告在落盘 markdown 里——优先用它。
+            report = resolve_report_body(skill, report, run_start_ts)
             if dashboard_enabled:
-                html_path = find_dashboard_html(skill, date_str)
+                html_path = ensure_dashboard(skill, cfg, run_start_ts)
                 if html_path:
                     html_body = html_path.read_text(encoding="utf-8") + render_risk_appendix_html(date_str)
                     send_email(ecfg, f"{prefix} {skill} {date_str}", html_body, log, body_type="html")
                 else:
-                    log("数据看板 HTML 文件未找到, 退回纯文本邮件")
+                    log("数据看板 HTML 文件未找到, 退回纯文本邮件(发送落盘报告全文)")
                     send_email(ecfg, f"{prefix} {skill} {date_str}", report, log)
             else:
                 send_email(ecfg, f"{prefix} {skill} {date_str}", report, log)
