@@ -1,0 +1,1 @@
+- [data-source-config](auto-memory/data-source-config.json) — A股数据获取工具探测与优先级编排配置(v2), 生成于2026-07-05

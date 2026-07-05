@@ -1,0 +1,182 @@
+{
+  "version": 2,
+  "generated_at": "2026-07-05",
+  "next_review_due": "2026-08-04",
+  "probe_summary": "Wind MCP 可用(A股/港股/美股/基金/指数/债券/公告/宏观EDB/新闻),deep-research 作为联网搜索兜底。Wind find-finance 仅做发现路由不取数。",
+  "tools": [
+    {
+      "id": "wind_mcp",
+      "kind": "professional",
+      "invoke": "skill:wind-mcp-skill → cd ~/.agents/skills/wind-mcp-skill && node scripts/cli.mjs call <server_type> <tool_name> '<params_json>'",
+      "status": "available",
+      "status_note": "",
+      "markets": ["A股", "港股", "美股", "基金", "指数", "债券", "宏观EDB", "公告新闻"],
+      "not_covered": ["台股", "日股", "韩股", "欧股", "汇率", "期货盘口", "加密货币"],
+      "data_types": ["行情", "K线", "分钟行情", "财务", "股东", "事件", "技术指标", "风险", "选股筛选", "基金净值", "基金持仓", "指数成分", "债券估值", "公告", "新闻", "宏观指标"],
+      "verified_by": "查600519.SH最新分钟行情返回完整数据;查financial_docs财经新闻返回正常"
+    },
+    {
+      "id": "web_search",
+      "kind": "web_search",
+      "invoke": "skill:deep-research → 传递自然语言查询进行多源搜索",
+      "status": "available",
+      "status_note": "",
+      "markets": ["全球"],
+      "not_covered": [],
+      "data_types": ["新闻", "政策", "定性行情", "事件"],
+      "verified_by": "描述文档(deep-research skill可用)"
+    },
+    {
+      "id": "wind_find_finance",
+      "kind": "professional",
+      "invoke": "skill:wind-find-finance-skill",
+      "status": "available",
+      "status_note": "仅做金融能力发现与安装路由,不直接取数,不入 routing",
+      "markets": [],
+      "not_covered": [],
+      "data_types": [],
+      "verified_by": "描述文档"
+    }
+  ],
+  "routing": {
+    "cn_equity_quote": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd ~/.agents/skills/wind-mcp-skill && node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"<A股代码如600519.SH>\"}'",
+        "param_hint": "windcode=单个A股代码(带后缀.SH或.SZ),单次只查一个标的。最新价用get_stock_quote,K线用get_kline(加begindate/enddate/freq),分钟行情用get_minute_quote。indexes可指定具体指标字段,值须逐字来自wind-mcp-skill的references/indicators.md。",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {
+          "tool_id": "web_search",
+          "invoke": "skill:deep-research → 搜索A股代码行情信息"
+        }
+      ],
+      "gate": "必须先实际调用primary并记录返回/错误后才允许走fallback;不允许跳过primary直接用fallback。多标的行情须拆为多次单标的primary调用后合并结果,不得为省调用次数组装多标的参数。",
+      "notes": "精确数值优先Wind专业工具;fallback仅采信定性信息,精确数字注明未经专业源核对。Wind不覆盖台股/日股/韩股/欧股/汇率/期货,此类请求走overseas_uncovered桶。"
+    },
+    "cn_equity_fundamental": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd ~/.agents/skills/wind-mcp-skill && node scripts/cli.mjs call stock_data search_stocks '{\"question\":\"<自然语言查询>\"}'",
+        "param_hint": "question传自然语言股票筛选/财务查询。财务基本面/股东/事件/技术/风险类查询也可用analytics_data.get_financial_data兜底(仅在stock_data专项工具无法覆盖时)。",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {
+          "tool_id": "web_search",
+          "invoke": "skill:deep-research → 搜索财务/股东信息"
+        }
+      ],
+      "gate": "必须先实际调用primary并记录返回后才允许走fallback。财务数据优先专业工具,fallback仅补定性。",
+      "notes": "Wind search_stocks覆盖选股筛选和NL财务查询。个股深度财务分析可拆为多次stock_data专项调用(行情/财务/事件各一次)。analytics_data仅在stock_data无法覆盖时兜底。"
+    },
+    "hk_us_equity": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd ~/.agents/skills/wind-mcp-skill && node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"<港股/美股代码如0700.HK或AAPL.O>\"}'",
+        "param_hint": "港股代码加.HK后缀,美股代码加.O(纳斯达克)或.N(纽交所)后缀。单次只查一个标的。",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {
+          "tool_id": "web_search",
+          "invoke": "skill:deep-research → 搜索港股/美股行情"
+        }
+      ],
+      "gate": "必须先实际调用primary并记录返回后才允许走fallback。",
+      "notes": "Wind覆盖港股和美股。搜股筛选用search_stocks,参数中的market字段区分A股/港股/美股。"
+    },
+    "fund_index_bond": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd ~/.agents/skills/wind-mcp-skill && node scripts/cli.mjs call <fund_data|index_data|bond_data> <tool_name> '<params_json>'",
+        "param_hint": "基金:fund_data服务器,工具get_fund_quote(行情)/search_funds(筛选)/get_fund_nav(净值)/get_fund_holdings(持仓)。指数:index_data服务器,get_index_quote(行情+基本面)。债券:bond_data服务器,get_bond_basicinfo(档案)/get_bond_market_data(行情估值),债券无行情快照。",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {
+          "tool_id": "web_search",
+          "invoke": "skill:deep-research → 搜索基金/指数/债券信息"
+        }
+      ],
+      "gate": "必须先实际调用primary并记录返回后才允许走fallback。单次只查一个标的。",
+      "notes": "Wind分别有fund_data/index_data/bond_data三个server_type覆盖。债券无行情快照工具,行情估值走get_bond_market_data的NL工具。"
+    },
+    "cn_tech_daily": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd ~/.agents/skills/wind-mcp-skill && node scripts/cli.mjs call stock_data get_kline '{\"windcode\":\"<A股代码>\",\"begindate\":\"<yyyyMMdd>\",\"enddate\":\"<yyyyMMdd>\",\"freq\":\"day\"}'",
+        "param_hint": "日线freq=day,周线freq=week,月线freq=month。begindate/enddate格式yyyyMMdd。技术指标计算建议覆盖至少120个交易日(约半年)。",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {
+          "tool_id": "web_search",
+          "invoke": "skill:deep-research → 搜索历史K线数据"
+        }
+      ],
+      "gate": "技术引擎专用:必须先实际调用primary获取日线序列并记录返回后才允许走fallback。不允许跳过primary直接用fallback。",
+      "notes": "技术引擎日线优先Wind K线工具。日线是技术指标计算的基础数据,质量要求高,fallback仅用于定性参考。"
+    },
+    "macro_indicator": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd ~/.agents/skills/wind-mcp-skill && node scripts/cli.mjs call economic_data natural_language_get_edb_data '{\"executionMode\":\"<serial|parallel>\",\"question\":\"<自然语言描述/EDB指标代码>\",\"beginDate\":\"<yyyyMMdd>\",\"endDate\":\"<yyyyMMdd>\"}'",
+        "param_hint": "executionMode:单指标serial,多指标parallel。question支持自然语言如'中国GDP同比增速'或EDB指标代码。beginDate/endDate必填(提数类请求)。observation参数可用于单时点数据(如'2024Q4 GDP')。",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {
+          "tool_id": "web_search",
+          "invoke": "skill:deep-research → 搜索宏观指标数据"
+        }
+      ],
+      "gate": "必须先实际调用primary并记录返回后才允许走fallback。宏观指标必须用Wind EDB专业接口,不允许直接用联网搜索凑数字。",
+      "notes": "宏观指标(GDP/CPI/PPI/PMI/社融/利率/失业率/进出口等)优先Wind economic_data的EDB接口。搜索仅补定性解读。"
+    },
+    "announcement_doc": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd ~/.agents/skills/wind-mcp-skill && node scripts/cli.mjs call financial_docs get_company_announcements '{\"query\":\"<公司名称/代码/公告类型>\"}'",
+        "param_hint": "query传自然语言(公司名称+公告类型如'年报''季报''减持公告'),不含空格。单次查一个主体。公告类型:年报/季报/招股书/减持/重组/监管/诉讼等。",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {
+          "tool_id": "web_search",
+          "invoke": "skill:deep-research → 搜索公司公告/财报"
+        }
+      ],
+      "gate": "必须先实际调用primary并记录返回后才允许走fallback。公告文档以Wind financial_docs为准,优先专业公告接口。",
+      "notes": "Wind financial_docs覆盖年报/季报/公告/招股书/监管披露。获取后可与web_search交叉印证以补漏。"
+    },
+    "news_policy": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd ~/.agents/skills/wind-mcp-skill && node scripts/cli.mjs call financial_docs get_financial_news '{\"query\":\"<新闻/政策查询关键词>\"}'",
+        "param_hint": "query传自然语言关键词(不含空格,多词拼一起或用连续写法),如'央行降准'或'新能源产业政策'。单次查询可按需多次调用覆盖不同主题。",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {
+          "tool_id": "web_search",
+          "invoke": "skill:deep-research → 搜索财经新闻/政策动态"
+        }
+      ],
+      "gate": "消息资讯类必须多工具组合交叉印证:先调primary拿权威底座(Wind财经新闻有可核对来源),再用fallback补时效广度;不允许只用单一web_search。primary失败时才退化为'仅联网搜索'并注明'未经专业资讯源交叉核对'。",
+      "notes": "Wind get_financial_news拿到专业资讯+可核对来源,deep-research补时效广度和多源交叉印证。政策解读以官方口径为准。"
+    },
+    "overseas_uncovered": {
+      "primary": {
+        "tool_id": "web_search",
+        "invoke": "skill:deep-research → 搜索海外市场(日股/欧股/汇率/期货/隔夜外盘)行情与事件",
+        "param_hint": "只采信定性信息(涨跌方向/大致区间),精确数字必须注明'未经专业金融数据源核对'。可调用deep-research做多源搜索。",
+        "must_try_before_fallback": false
+      },
+      "fallbacks": [],
+      "gate": "此桶无专业金融数据源,primary即web_search。只采信定性信息(涨跌/方向/大致区间),精确数字必须注明'未经专业金融数据源核对'。不得用Wind伪装支持超范围请求。",
+      "notes": "日股/欧股/汇率/期货/加密货币/隔夜外盘/台股/韩股等Wind不覆盖,只能联网搜索兜底。精确数字不当可靠数据填报,仅用于定性参考。"
+    }
+  }
+}

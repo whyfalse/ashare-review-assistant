@@ -1,0 +1,171 @@
+{
+  "version": 2,
+  "generated_at": "2026-07-05",
+  "next_review_due": "2026-08-04",
+  "probe_summary": "Wind MCP 可用(A股/港股/美股/基金/指数/债券/公告/宏观/新闻), akshare 1.18.64 可用(A股本地降级), 联网搜索三件套可用(baillan MCP + WebSearch + WebFetch)",
+  "tools": [
+    {
+      "id": "wind_mcp",
+      "kind": "professional",
+      "invoke": "skill:wind-mcp-skill (调用前先cd到C:/Users/97969/.claude/skills/wind-mcp-skill 再执行 node scripts/cli.mjs call <server_type> <tool_name> '<params_json>')",
+      "status": "available",
+      "markets": ["A股", "港股", "美股", "基金", "指数", "债券", "宏观EDB", "公告新闻"],
+      "not_covered": ["日股", "欧股", "台股", "韩股", "汇率", "期货", "加密货币"],
+      "data_types": ["行情", "K线", "分钟行情", "财务", "股东", "事件", "技术指标", "风险", "基金行情净值持仓", "指数行情基本面", "债券档案估值", "公告年报季报", "财经新闻", "宏观EDB指标", "行业指标"],
+      "verified_by": "查贵州茅台600519.SH get_stock_quote 返回完整分钟行情(2026-07-03交易数据), exit code 0"
+    },
+    {
+      "id": "wind_find_finance",
+      "kind": "professional",
+      "invoke": "skill:wind-find-finance-skill",
+      "status": "unverified",
+      "status_note": "skill存在于列表但未独立探活；wind_mcp已覆盖相同市场与数据类型，wind_find_finance为备用入口",
+      "markets": ["A股", "港股", "美股", "基金", "指数", "债券", "宏观EDB", "公告新闻"],
+      "not_covered": ["日股", "欧股", "台股", "韩股", "汇率", "期货", "加密货币"],
+      "data_types": ["行情", "K线", "分钟行情", "财务", "股东", "事件", "技术指标", "风险", "基金行情净值持仓", "指数行情基本面", "债券档案估值", "公告年报季报", "财经新闻", "宏观EDB指标", "行业指标"],
+      "verified_by": "描述文档(系统提示词中的skill描述)"
+    },
+    {
+      "id": "akshare_local",
+      "kind": "local_script",
+      "invoke": "script: python -c \"<akshare调用代码>\" (PYTHONIOENCODING=utf-8)",
+      "status": "available",
+      "markets": ["A股", "港股", "指数", "基金", "债券", "宏观"],
+      "not_covered": ["美股", "日股", "欧股", "汇率", "期货", "加密货币"],
+      "data_types": ["行情", "K线", "财务", "资金流向", "基金净值", "指数", "宏观指标"],
+      "verified_by": "import akshare 成功, version 1.18.64"
+    },
+    {
+      "id": "web_search",
+      "kind": "web_search",
+      "invoke": "mcp:mcp__WebSearch__bailian_web_search / builtin:WebSearch / builtin:WebFetch",
+      "status": "available",
+      "markets": ["全球"],
+      "not_covered": [],
+      "data_types": ["新闻", "定性行情", "公告"],
+      "verified_by": "MCP配置(aliyun-websearch)存在且权限允许; builtin WebSearch/WebFetch在工具列表中"
+    }
+  ],
+  "routing": {
+    "cn_equity_quote": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd C:/Users/97969/.claude/skills/wind-mcp-skill && node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"<A股代码>\"}'; K线走 get_kline '{\"windcode\":\"<代码>\",\"begindate\":\"<yyyyMMdd>\",\"enddate\":\"<yyyyMMdd>\",\"freq\":\"day\"}'; 分钟线走 get_minute_quote '{\"windcode\":\"<代码>\",\"date\":\"<yyyyMMdd>\"}'",
+        "param_hint": "windcode格式: 沪市=代码.SH, 深市=代码.SZ, 北交所=代码.BJ; freq可选 day/week/month; begindate/enddate为yyyyMMdd格式",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {"tool_id": "akshare_local", "invoke": "PYTHONIOENCODING=utf-8 python -c \"import akshare as ak; print(ak.stock_zh_a_hist(symbol='<代码>', period='daily', start_date='<yyyyMMdd>', end_date='<yyyyMMdd>', adjust='qfq'))\""},
+        {"tool_id": "web_search", "invoke": "builtin:WebSearch / mcp:mcp__WebSearch__bailian_web_search"}
+      ],
+      "gate": "必须先实际调用 primary(wind_mcp)并记录返回后才允许走 fallback; 不允许跳过 primary 直接用 fallback; 单次调用只查一个标的",
+      "notes": "精确数值优先wind_mcp; akshare仅补A股本地降级; web_search仅采信定性信息,精确数字注明未经专业源核对"
+    },
+    "cn_equity_fundamental": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd C:/Users/97969/.claude/skills/wind-mcp-skill && node scripts/cli.mjs call stock_data <NL工具名> '{\"question\":\"<自然语言查询>\"}'; 财务/股东/事件/技术/风险等走对应NL工具: get_financial_data / get_shareholder_data / get_event_data / get_technical_data / get_risk_data",
+        "param_hint": "question传自然语言; 财务取数优先用get_financial_data(字段覆盖更全), indexes按indicators.md逐字复制",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {"tool_id": "akshare_local", "invoke": "PYTHONIOENCODING=utf-8 python -c \"import akshare as ak; print(ak.stock_<对应函数>)\""},
+        {"tool_id": "web_search", "invoke": "builtin:WebSearch / mcp:mcp__WebSearch__bailian_web_search"}
+      ],
+      "gate": "必须先实际调用 primary(wind_mcp)并记录返回后才允许走 fallback",
+      "notes": "财务数据优先wind_mcp get_financial_data; akshare补本地A股财务; 搜索仅补定性"
+    },
+    "hk_us_equity": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd C:/Users/97969/.claude/skills/wind-mcp-skill && node scripts/cli.mjs call stock_data get_stock_quote '{\"windcode\":\"<港股/美股代码>\"}'; 港股代码格式=代码.HK, 美股代码格式=代码.US",
+        "param_hint": "港股windcode=代码.HK(如0700.HK); 美股windcode=代码.US(如AAPL.US)",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {"tool_id": "web_search", "invoke": "builtin:WebSearch / mcp:mcp__WebSearch__bailian_web_search"}
+      ],
+      "gate": "必须先实际调用 primary(wind_mcp)并记录返回后才允许走 fallback",
+      "notes": "港股美股行情wind_mcp stock_data覆盖; 搜索仅补定性信息"
+    },
+    "fund_index_bond": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd C:/Users/97969/.claude/skills/wind-mcp-skill && node scripts/cli.mjs call <fund_data|index_data|bond_data> <对应工具名> '<params_json>'; 基金走fund_data, 指数走index_data, 债券走bond_data",
+        "param_hint": "基金筛选/行情/净值/持仓走fund_data; 指数行情/K线/基本面走index_data; 债券档案/估值走bond_data",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {"tool_id": "akshare_local", "invoke": "PYTHONIOENCODING=utf-8 python -c \"import akshare as ak; print(ak.fund_<对应函数>)\""},
+        {"tool_id": "web_search", "invoke": "builtin:WebSearch / mcp:mcp__WebSearch__bailian_web_search"}
+      ],
+      "gate": "必须先实际调用 primary(wind_mcp)并记录返回后才允许走 fallback",
+      "notes": "基金/指数/债券优先wind_mcp; akshare补本地指数/基金数据; 搜索仅补定性"
+    },
+    "cn_tech_daily": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd C:/Users/97969/.claude/skills/wind-mcp-skill && node scripts/cli.mjs call stock_data get_kline '{\"windcode\":\"<A股代码>\",\"begindate\":\"<yyyyMMdd>\",\"enddate\":\"<yyyyMMdd>\",\"freq\":\"day\"}'",
+        "param_hint": "技术引擎取日线: freq=day, begindate取足够长(至少250交易日以覆盖MA250), 单次调用只查一个标的",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {"tool_id": "akshare_local", "invoke": "PYTHONIOENCODING=utf-8 python -c \"import akshare as ak; import json; df=ak.stock_zh_a_hist(symbol='<代码>', period='daily', start_date='<start>', end_date='<end>', adjust='qfq'); print(df.to_json(orient='records', force_ascii=False))\""},
+        {"tool_id": "web_search", "invoke": "builtin:WebSearch / mcp:mcp__WebSearch__bailian_web_search"}
+      ],
+      "gate": "必须先实际调用 primary(wind_mcp)并记录返回后才允许走 fallback; 不允许跳过 primary 直接用 fallback",
+      "notes": "技术引擎日线优先wind_mcp get_kline; akshare补本地K线; 搜索仅补定性"
+    },
+    "macro_indicator": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd C:/Users/97969/.claude/skills/wind-mcp-skill && node scripts/cli.mjs call economic_data natural_language_get_edb_data '{\"executionMode\":\"<single>\",\"question\":\"<自然语言指标描述>\"}'",
+        "param_hint": "question传自然语言(如'2026年6月中国CPI同比'); executionMode=single; 需显式指定beginDate/endDate",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {"tool_id": "akshare_local", "invoke": "PYTHONIOENCODING=utf-8 python -c \"import akshare as ak; print(ak.macro_china_<对应函数>)\""},
+        {"tool_id": "web_search", "invoke": "builtin:WebSearch / mcp:mcp__WebSearch__bailian_web_search"}
+      ],
+      "gate": "必须先实际调用 primary(wind_mcp)并记录返回后才允许走 fallback",
+      "notes": "宏观EDB指标优先wind_mcp economic_data; akshare补本地宏观数据; 搜索仅补定性"
+    },
+    "announcement_doc": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd C:/Users/97969/.claude/skills/wind-mcp-skill && node scripts/cli.mjs call financial_docs get_company_announcements '{\"query\":\"<公司名称或代码>\"}'",
+        "param_hint": "query传公司名称或代码; 可取年报/季报/公告/招股书",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {"tool_id": "web_search", "invoke": "builtin:WebSearch / mcp:mcp__WebSearch__bailian_web_search / builtin:WebFetch"}
+      ],
+      "gate": "必须先实际调用 primary(wind_mcp)并记录返回后才允许走 fallback",
+      "notes": "公告/财报优先wind_mcp financial_docs; 搜索补时效广度和非上市公司公告"
+    },
+    "news_policy": {
+      "primary": {
+        "tool_id": "wind_mcp",
+        "invoke": "cd C:/Users/97969/.claude/skills/wind-mcp-skill && node scripts/cli.mjs call financial_docs get_financial_news '{\"query\":\"<新闻/政策查询>\"}'",
+        "param_hint": "query传自然语言(如'2026年7月A股政策新闻'或'央行降准')",
+        "must_try_before_fallback": true
+      },
+      "fallbacks": [
+        {"tool_id": "web_search", "invoke": "builtin:WebSearch / mcp:mcp__WebSearch__bailian_web_search / builtin:WebFetch"}
+      ],
+      "gate": "消息资讯类必须多工具组合交叉印证: 先调primary(wind_mcp)拿权威底座, 再用fallback(web_search)补时效广度; 不允许只用单一web_search。primary失败时才可退化为'仅联网搜索'并注明'未经专业资讯源交叉核对'",
+      "notes": "wind_mcp financial_news拿可核对来源+联网搜索补时效广度,交叉印证; 政策/监管消息优先官方来源"
+    },
+    "overseas_uncovered": {
+      "primary": {
+        "tool_id": "web_search",
+        "invoke": "builtin:WebSearch / mcp:mcp__WebSearch__bailian_web_search / builtin:WebFetch",
+        "param_hint": "只采信定性信息(涨跌/方向/大致区间), 精确数字注明未经专业源核对",
+        "must_try_before_fallback": false
+      },
+      "fallbacks": [],
+      "gate": "此桶无专业源, primary即web_search; 只采信定性信息, 精确数字注明未经专业源核对",
+      "notes": "日股/欧股/汇率/隔夜外盘 Wind不覆盖, 只能联网搜索, 精确数字注明未经专业源核对"
+    }
+  }
+}

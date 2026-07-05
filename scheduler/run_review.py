@@ -21,6 +21,7 @@ run_review.py — A股复盘定时调度入口
 import argparse
 import datetime as dt
 import html
+import re
 import shutil
 import subprocess
 import sys
@@ -206,20 +207,46 @@ def run_skill(skill: str, cfg: dict) -> str:
 
 
 # ---------- 数据看板 HTML 文件查找 ----------
-def find_dashboard_html(skill: str, since_ts: Optional[float] = None) -> Optional[Path]:
-    """在 output/ashare-dashboard/ 中查找指定技能生成的 HTML 文件, 返回最新一份。
+# 从文件主干末尾提取 YYYY-MM-DD 日期(如 weekly_review_dashboard_2026-07-05 → 2026-07-05,
+# weekly_review_2026-07-05 → 2026-07-05)。报告 md 与看板 html 的文件名均以该日期结尾
+# (见 ashare-dashboard 技能 SKILL.md 步骤6: 日期取运行当天, 与各复盘技能报告 md 的日期口径
+# 一致), 据此把看板与报告按"同一报告周期"配对。
+_DATE_SUFFIX_RE = re.compile(r"(\d{4}-\d{2}-\d{2})$")
 
-    按模板前缀(如 ashare-weekly-review → weekly_review)匹配 `{prefix}_dashboard_*.html`,
-    取最近修改的一份。不按文件名里的日期做严格匹配——各技能看板文件名的日期口径
-    可能不同(取自数据源内容或运行当天), 严格按当天匹配会漏掉看板, 故统一按 mtime 取最新。
+
+def _extract_date_suffix(stem: str) -> Optional[str]:
+    """从文件主干末尾提取 YYYY-MM-DD 日期; 没有则 None。"""
+    m = _DATE_SUFFIX_RE.search(stem)
+    return m.group(1) if m else None
+
+
+def find_dashboard_html(
+    skill: str,
+    report_path: Optional[Path] = None,
+    since_ts: Optional[float] = None,
+    require_fresh: bool = False,
+) -> Optional[Path]:
+    """在 output/ashare-dashboard/ 中查找指定技能的看板 HTML, 返回最合适的一份。
+
+    匹配分两级, 前者优先:
+      1. 本次运行期间新生成的看板(mtime >= since_ts)——最可靠, 直接用。
+      2. 与报告同日的看板(文件名末尾日期 == 报告 md 末尾日期)——兜底: 无头模式下
+         ashare-dashboard 偶尔会复用已存在的同日看板而不重新写盘, 导致 mtime 不更新,
+         若只认 mtime 会漏掉它。同日看板属同一报告周期、口径一致, 采用它远好于退回纯文本。
+
+    都不命中则返回 None(由调用方退回纯文本, 不强行用跨日旧看板, 避免张冠李戴)。
 
     Args:
-        skill: 复盘技能名, 用于匹配模板前缀
-        since_ts: 可选, 仅保留 mtime >= since_ts 的文件(用于限定"本次运行期间生成"的看板,
-                  避免误用上一轮遗留的旧看板); None 则不限时间, 取最新一份
+        skill: 复盘技能名, 用于匹配模板前缀(如 ashare-weekly-review → weekly_review)
+        report_path: 本次落盘报告路径, 用于提取报告日期做同日配对; None 则只走第1级
+        since_ts: 可选, "本次运行起点"时间戳, 用于判定看板是否本次新生成(mtime >= since_ts)。
+                  仅作优先级判定, 不再作硬过滤(避免漏掉同日复用未写盘的看板)。
+        require_fresh: True 时只返回第1级(本次新生成)的看板, 不退回同日旧看板。
+                  用于兜底渲染前的短路判定——没新生成就要触发兜底重新渲染, 而不是
+                  直接用同日旧看板糊弄。默认 False(兜底渲染后再找时用, 允许退回同日看板)。
 
     Returns:
-        匹配的最新 HTML 文件路径, 未找到则 None
+        匹配的 HTML 文件路径, 未找到则 None
     """
     dashboard_dir = PROJECT_ROOT / "output" / "ashare-dashboard"
     if not dashboard_dir.is_dir():
@@ -230,7 +257,10 @@ def find_dashboard_html(skill: str, since_ts: Optional[float] = None) -> Optiona
         return None
 
     stem_prefix = f"{prefix}_dashboard_"
-    matches = []
+    target_date = _extract_date_suffix(report_path.stem) if report_path else None
+
+    fresh_matches = []  # (mtime, path): 本次运行期间新生成
+    date_matches = []   # (mtime, path): 与报告同日(任意 mtime)
     for f in dashboard_dir.glob("*.html"):
         if not f.stem.startswith(stem_prefix):
             continue
@@ -238,14 +268,26 @@ def find_dashboard_html(skill: str, since_ts: Optional[float] = None) -> Optiona
             mtime = f.stat().st_mtime
         except OSError:
             continue
-        if since_ts is not None and mtime < since_ts:
-            continue
-        matches.append((mtime, f))
-    matches.sort(key=lambda x: x[0], reverse=True)
-    if matches:
-        log(f"找到数据看板文件: {matches[0][1]}")
-        return matches[0][1]
-    log(f"未找到匹配的数据看板文件 (prefix={prefix}, since_ts={since_ts})")
+        if since_ts is None or mtime >= since_ts:
+            fresh_matches.append((mtime, f))
+        if target_date and _extract_date_suffix(f.stem) == target_date:
+            date_matches.append((mtime, f))
+
+    if fresh_matches:
+        fresh_matches.sort(key=lambda x: x[0], reverse=True)
+        log(f"找到数据看板文件(本次运行新生成): {fresh_matches[0][1].name}")
+        return fresh_matches[0][1]
+
+    if not require_fresh and date_matches:
+        date_matches.sort(key=lambda x: x[0], reverse=True)
+        chosen = date_matches[0][1]
+        log(
+            f"找到数据看板文件(按报告日期 {target_date} 同日匹配): {chosen.name}"
+            f" —— mtime 早于本次运行起点, 可能为同日较早生成/被复用未重写; 属同一报告周期, 仍采用。"
+        )
+        return chosen
+
+    log(f"未找到匹配的数据看板文件 (prefix={prefix}, 报告日期={target_date}, since_ts={since_ts})")
     return None
 
 
@@ -318,15 +360,19 @@ def ensure_dashboard(skill: str, cfg: dict, run_start_ts: float) -> Optional[Pat
     在首轮没产出看板时, 单独发一个聚焦的 claude 调用: 直接读落盘报告文件, 调
     ashare-dashboard 渲染。失败不抛错, 由调用方退回纯文本邮件。
     """
-    # 首轮若已生成看板(本次运行期间写盘), 直接用, 不再额外发起调用。
-    existing = find_dashboard_html(skill, since_ts=run_start_ts)
-    if existing:
-        return existing
-
+    # 先定位本次落盘报告: 既是兜底渲染的数据源, 也用于按报告日期配对看板。
     report_path = find_report_markdown(skill, since_ts=run_start_ts)
     if not report_path:
         log("未找到落盘报告, 无法兜底生成数据看板")
         return None
+
+    # 首轮短路: 若本次运行已新生成看板(mtime >= run_start_ts), 直接用, 不再发起兜底调用。
+    # 注意此处 require_fresh=True —— 同日较早的旧看板不短路, 要触发兜底重新渲染以匹配
+    # 本次刚落盘的新报告(否则会拿旧报告的看板糊弄过去)。
+    existing = find_dashboard_html(skill, report_path=report_path,
+                                   since_ts=run_start_ts, require_fresh=True)
+    if existing:
+        return existing
 
     ccfg = cfg.get("claude", {}) or {}
     # 看板渲染只是展示层, 给一个比完整复盘短的超时(默认 600s), 也可在 config 单独配。
@@ -340,8 +386,11 @@ def ensure_dashboard(skill: str, cfg: dict, run_start_ts: float) -> Optional[Pat
         f"文件名按 ashare-dashboard 技能规则从匹配到的模板派生。"
         f"模板目录位于 {template_dir}，其中已有以下模板文件：weekly_review.html、"
         f"evening_review.html、intraday_review.html、morning_brief.html，"
-        f"请按报告类型匹配对应模板。只做展示层渲染："
-        f"不重新取数、不做新分析、不编造数据源里没有的内容，数据缺失按模板规则占位。"
+        f"请按报告类型匹配对应模板。"
+        f"若 output/ashare-dashboard/ 下已存在同日的同名看板文件，必须重新写入覆盖"
+        f"（不要复用旧文件、不要因已存在就跳过写盘），确保看板内容严格基于本次数据源报告。"
+        f"只做展示层渲染：不重新取数、不做新分析、不编造数据源里没有的内容，"
+        f"数据缺失按模板规则占位。"
     )
     log(f"首轮未产出数据看板, 启动看板渲染兜底调用 (超时 {timeout}s)")
     try:
@@ -354,7 +403,9 @@ def ensure_dashboard(skill: str, cfg: dict, run_start_ts: float) -> Optional[Pat
     except RuntimeError as e:
         log(f"看板渲染兜底调用失败: {e}")
         return None
-    return find_dashboard_html(skill, since_ts=run_start_ts)
+    # 兜底后再找: 优先本次新生成(若 claude 确实重写了盘); 若 claude 仍复用旧文件未写盘
+    # (mtime 未更新), 则退回与报告同日的看板——属同一报告周期, 好于退回纯文本。
+    return find_dashboard_html(skill, report_path=report_path, since_ts=run_start_ts)
 
 
 # ---------- 风险报告追加(看板邮件用) ----------
