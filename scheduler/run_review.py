@@ -172,8 +172,25 @@ def _run_claude(prompt: str, ccfg: dict, timeout: int, label: str) -> str:
     return out
 
 
+# ---------- 无头模式调用 review-orchestrator 的默认 prompt ----------
+# 必须显式约束"同步前台执行 + 落盘 + 禁过渡话术"。否则主 Claude 常把"通过 agent
+# 执行技能"误解为"后台启动后提前返回", 只回一段"已启动/正在执行/请稍候/完成后会
+# 通知"过渡话术, 技能既未真正跑完、报告也不落盘, 邮件正文就成了一封废邮件。
+# 该 prompt 已在 2026-07-05 的周复盘实测中验证可靠(完整报告落盘 + 看板生成); 同日
+# 用短默认 prompt("请通过 review-orchestrator agent 执行 X 技能，输出完整中文报告")
+# 多次实测均失败(过渡话术/未落盘)。config.yaml 的 claude.prompt 可整体覆盖。
+_DEFAULT_SKILL_PROMPT = """请通过 review-orchestrator agent 执行 {skill} 技能，输出完整中文报告。
+
+本 prompt 由定时调度器无头调用，无人工交互，以下要求务必遵守：
+1. 必须以同步前台方式调用 review-orchestrator agent（等待 agent 完整返回后再继续），不得以后台方式启动后提前结束本轮。你的最终输出会被直接当作邮件正文，因此禁止只回复"已启动代理/正在执行/请稍候/完成后会通知"之类的过渡话术——那不是报告，会发出一封内容只有过渡话术的废邮件。
+2. agent 返回后，把完整中文报告正文原样作为最终答复输出；若技能已把报告落盘，请回读落盘文件全文输出，不要只给摘要或文件路径。
+3. 报告必须落盘到技能 SKILL.md 指定的 output/ 目录（bypassPermissions 模式下 Write 工具免确认，不得以"权限受限/无法保存"为由跳过落盘）。调度器优先用落盘报告作邮件正文，未落盘会被判定为未完成并发告警邮件。
+4. 必须完整执行技能的全部模块（如周复盘的九大模块与技术引擎），不得因耗时/上下文/取数困难而偷工减料或降级为简略摘要。
+5. 无头模式下所有编排接力（如周复盘的风险预跑、宏观完整维护）必须自动顺序完成，不得以"是否需要继续？/是否执行宏观维护？"等交互话术收尾等待确认——无头模式没有用户交互，此类话术会被判定为未完成。"""
+
+
 # ---------- 调用 claude 无头执行技能(通过 review-orchestrator agent 编排) ----------
-def run_skill(skill: str, cfg: dict) -> str:
+def run_skill(skill: str, cfg: dict, run_start_ts: float) -> str:
     """通过 review-orchestrator agent 调用 claude 执行技能, 返回 stdout 文本; 失败抛 RuntimeError。
 
     review-orchestrator 相比直接调 Skill 多了三层自动接力:
@@ -181,6 +198,12 @@ def run_skill(skill: str, cfg: dict) -> str:
       2. 风险识别接力: 复盘后命中一票否决级红旗苗头等风险信号, 接力调用
          ashare-risk-assessment 对相关标的深挖; 周复盘时先做一次组合风险预跑再执行周复盘
       3. (周复盘时) 自动触发 ashare-macro-context 完整维护模式
+
+    无头模式下主 Claude 偶尔不等 agent 返回就回一段"已启动/请稍候"过渡话术(假完成),
+    技能既未跑完、报告也不落盘。本函数对此重试: 以"本次运行期间是否落盘报告"为成功
+    判据(各复盘技能 SKILL.md 均要求落盘), 未落盘且 stdout 过短即视为假完成, 最多重试
+    max_attempts 次(默认 3)。重试仍失败则返回最后一次输出, 由 main() 的假完成兜底判
+    失败发告警邮件, 不发过渡话术废邮件。
 
     注意: 无头模式下 review-orchestrator 往往只在 stdout 回一段简短摘要, 完整报告由
     技能落盘到 output/。本函数返回的 stdout 仅供日志参考, 邮件正文应优先取落盘报告
@@ -190,10 +213,8 @@ def run_skill(skill: str, cfg: dict) -> str:
     避免编排链路过长导致看板步骤被截断。
     """
     ccfg = cfg.get("claude", {}) or {}
-    if ccfg.get("prompt"):
-        prompt = ccfg["prompt"].format(skill=skill)
-    else:
-        prompt = f"请通过 review-orchestrator agent 执行 {skill} 技能，输出完整中文报告"
+    prompt_template = ccfg.get("prompt") or _DEFAULT_SKILL_PROMPT
+    prompt = prompt_template.format(skill=skill)
     # 看板渲染已从主 prompt 移除，统一由 ensure_dashboard() 兜底单独调用。
     # 原因是 review-orchestrator 在无头模式下的编排链路太长（数据源预检→风险预跑→
     # 复盘→宏观维护→看板），看板作为最后一步经常来不及完成就返回了，导致首轮
@@ -201,9 +222,26 @@ def run_skill(skill: str, cfg: dict) -> str:
     # 在报告落盘后独立渲染，每次调用更短更可靠。
 
     timeout = int(ccfg.get("timeout_seconds", 1800))
-    out = _run_claude(prompt, ccfg, timeout, f"调用 claude 执行技能 {skill}")
-    log(f"技能执行完成, stdout 长度 {len(out)} 字符")
-    return out
+    max_attempts = max(1, int(ccfg.get("max_attempts", 3)))
+    last_out = ""
+    for attempt in range(1, max_attempts + 1):
+        out = _run_claude(prompt, ccfg, timeout,
+                          f"调用 claude 执行技能 {skill} (第{attempt}/{max_attempts}次)")
+        last_out = out
+        log(f"技能执行完成 (第{attempt}/{max_attempts}次), stdout 长度 {len(out)} 字符")
+        # 成功判据: 技能 SKILL.md 要求落盘, 本次运行期间落盘了报告即视为真完成。
+        if find_report_markdown(skill, since_ts=run_start_ts):
+            return out
+        # 未落盘但 stdout 足够长: 可能是完整报告只没落盘, 接受(交由 resolve_report_body 用 stdout)。
+        if len(out) >= 2000:
+            log(f"未落盘报告但 stdout 达 {len(out)} 字符, 视为完整报告(仅未落盘), 接受。")
+            return out
+        # 未落盘且 stdout 过短: 疑似假完成(主 Claude 未等 agent 返回即回过渡话术), 重试。
+        if attempt < max_attempts:
+            log(f"未落盘报告且 stdout 仅 {len(out)} 字符(疑似假完成), 将重试")
+            continue
+    log(f"已达最大重试次数 {max_attempts} 仍未落盘报告, 返回最后一次输出交主流程判定。")
+    return last_out
 
 
 # ---------- 数据看板 HTML 文件查找 ----------
@@ -391,6 +429,8 @@ def ensure_dashboard(skill: str, cfg: dict, run_start_ts: float) -> Optional[Pat
         f"（不要复用旧文件、不要因已存在就跳过写盘），确保看板内容严格基于本次数据源报告。"
         f"只做展示层渲染：不重新取数、不做新分析、不编造数据源里没有的内容，"
         f"数据缺失按模板规则占位。"
+        f"必须实际调用 Write 工具把 HTML 写入磁盘，写盘后回读该文件确认存在且非空；"
+        f"不得只在回复里描述“已生成/文件路径/大小”而实际未写盘——未真正落盘的看板等同于未生成。"
     )
     log(f"首轮未产出数据看板, 启动看板渲染兜底调用 (超时 {timeout}s)")
     try:
@@ -522,10 +562,17 @@ def main():
     # 记录本次运行起点, 用于"只认本次运行期间新生成的看板", 避免误用上一轮遗留文件。
     run_start_ts = now.timestamp()
     try:
-        report = run_skill(skill, cfg)
+        report = run_skill(skill, cfg, run_start_ts)
         if not args.no_email:
             # 无头 Claude 的 stdout 常只是一段摘要, 完整报告在落盘 markdown 里——优先用它。
             report = resolve_report_body(skill, report, run_start_ts)
+            # 假完成兜底: 多次重试后仍无落盘报告且 stdout 过短 -> 判失败发告警, 不发过渡话术废邮件。
+            # (主 Claude 未等 review-orchestrator 返回即回过渡话术时, 技能不会落盘。)
+            if not find_report_markdown(skill, since_ts=run_start_ts) and len(report) < 2000:
+                raise RuntimeError(
+                    f"技能 {skill} 疑似假完成: 多次调用后仍未落盘报告, stdout 仅 {len(report)} 字符"
+                    f"(可能是主 Claude 未等 review-orchestrator 返回即回过渡话术)。请重试或检查编排链路。"
+                )
             if dashboard_enabled:
                 html_path = ensure_dashboard(skill, cfg, run_start_ts)
                 if html_path:
