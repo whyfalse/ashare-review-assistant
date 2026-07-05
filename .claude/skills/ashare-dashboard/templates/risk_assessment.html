@@ -1,0 +1,588 @@
+<!--
+@dashboard-template
+name: 风险体检看板
+match: 风险评估,风险排查,风险体检,风险识别,风险报告,持仓风险,组合风险,有没有雷,风险大不大,risk assessment
+target: A股投资风险评估报告(ashare-risk-assessment 产出)的移动端看板——分层风险等级(L1-L6)+红旗信号清单+系统性/非系统性分类+组合集中度
+data: 总体风险等级,红旗命中状态,六层风险速览,系统性vs非系统性风险,组合集中度L6,分层详细分析,数据来源与缺口,免责声明
+-->
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>风险体检看板</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@600;700;900&family=Noto+Sans+SC:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!--
+  模板说明(给生成时的 skill 看):
+  - 本文件是"风险体检看板"模板,面向 ashare-risk-assessment 产出的风险评估报告。下方所有数字/文字/等级均为
+    【示意占位】,生成时用真实风险报告内容逐处替换;架构、分区顺序、样式、纪律措辞位保留不动。
+  - 占位规则:等级替换等级、文案替换文案、红旗条目按报告实际命中情况增减;缺失字段按各模块注释的"缺失时"
+    规则渲染("—"灰显 / "不适用"标注 / 整块降级),绝不编造或外推风险等级或红旗。
+  - 风险等级四档配色(区别于涨跌色): 低=绿 / 中=黄 / 中高=橙 / 高=红 / 不适用=灰。等级文字与颜色双编码,
+    色弱也能读。六层热力条(.lvl-seg)的填色与发光段在生成时按报告各层等级内联到 class/style,不依赖 <script>。
+  - 组合集中度占比条(.conc-fill)宽度【必须在生成时预算并内联到 style】,不得依赖 <script>:
+    看板常经邮件发送,邮件客户端会删除 <script> 且不执行 JS,运行时算宽度的条会坍缩失效。
+    规则(单向归一,组内 M = max|v|): S = M×1.1, width = |v|/S×100%。
+    示例(占位): 半导体 100%(M=100,S=110) → width:90.9%。
+  - 纪律保留位:红旗信号优先于加权平均(命中即总体标高、置顶红底)、风险等级为定性判断非精确预测、
+    "不构成投资建议"免责声明——这些结构在模板里已预留,生成时填入报告原文,不得为版面精简而删改口径。
+  - 分析对象适配:风险报告支持 大盘/板块/个股/持仓组合 四种对象,覆盖层级不同(见 ashare-risk-assessment 步骤0.1)。
+    六层热力条对"本对象不适用"的层按"缺失时"规则灰显并标"不适用",不得编造等级填满。
+-->
+<style>
+  :root{
+    --bg:#0A0D12; --bg-deep:#070909;
+    --panel:#10141C; --panel-2:#151B26; --panel-3:#1A2130;
+    --border:#252C3B; --border-soft:#1A202C;
+    --text:#E8EBF1; --dim:#8C96AC; --faint:#576078;
+    --up:#FF4D5E; --up-soft:rgba(255,77,94,.14); --up-border:rgba(255,77,94,.35);
+    --down:#16C784; --down-soft:rgba(22,199,132,.14); --down-border:rgba(22,199,132,.35);
+    --warn:#F0B429; --warn-soft:rgba(240,180,41,.14); --warn-border:rgba(240,180,41,.4);
+    --info:#4C8DFF; --info-soft:rgba(76,141,255,.14);
+    --strength:#9B83EF; --strength-soft:rgba(155,131,239,.16);
+    --flow:#2FD4C9; --flat:#6B7589;
+    /* 风险等级四档专用色 */
+    --rk-low:#16C784; --rk-low-soft:rgba(22,199,132,.16);
+    --rk-mid:#F0B429; --rk-mid-soft:rgba(240,180,41,.16);
+    --rk-midhigh:#FF8A3D; --rk-midhigh-soft:rgba(255,138,61,.16);
+    --rk-high:#FF4D5E; --rk-high-soft:rgba(255,77,94,.16);
+    --r:12px; --gap:12px;
+    --fd:'Noto Serif SC',serif;
+    --fb:'Noto Sans SC','PingFang SC','Microsoft YaHei',-apple-system,sans-serif;
+    --fm:'JetBrains Mono',ui-monospace,monospace;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--bg); color:var(--text); font-family:var(--fb);
+    -webkit-font-smoothing:antialiased; line-height:1.65; font-size:15px;
+    max-width:520px; margin:0 auto;
+    padding:calc(env(safe-area-inset-top) + 12px) 14px calc(env(safe-area-inset-bottom) + 28px);
+  }
+  .num{font-family:var(--fm); font-feature-settings:"tnum";}
+  .up{color:var(--up);} .down{color:var(--down);} .flat-c{color:var(--flat);}
+  .dim{color:var(--dim);} .faint{color:var(--faint);}
+  b{font-weight:600;}
+
+  /* ===== 顶部窄标题 ===== */
+  .top{display:flex; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:14px;}
+  .top .t{font-family:var(--fd); font-weight:700; font-size:17px;}
+  .top .d{font-family:var(--fm); font-size:12px; color:var(--dim);}
+  .src-flag{display:inline-flex; align-items:center; gap:4px; font-size:11px; color:var(--warn);
+    border:1px solid var(--warn-border); background:var(--warn-soft); padding:2px 8px; border-radius:99px;
+    text-decoration:none; margin-left:auto;}
+  .src-flag:active{opacity:.7;}
+
+  /* ===== 通用卡片 / 分区标题 ===== */
+  .card{background:var(--panel); border:1px solid var(--border); border-radius:var(--r); padding:14px; margin-bottom:var(--gap);}
+  .sec{margin-top:22px;}
+  .sec-eye{font-family:var(--fm); font-size:11px; letter-spacing:.14em; color:var(--faint); text-transform:uppercase; margin-bottom:3px;}
+  .sec-title{font-family:var(--fd); font-size:18px; font-weight:700; display:flex; align-items:baseline; gap:8px; flex-wrap:wrap;}
+  .sec-title .sub{font-family:var(--fb); font-weight:400; font-size:12.5px; color:var(--dim);}
+  .takeaway{font-size:12.5px; color:var(--dim); margin-top:6px; line-height:1.7;}
+  .takeaway b{color:var(--text);}
+  .muted-box{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:8px; padding:11px 13px; font-size:11.5px; color:var(--dim); line-height:1.75; margin-top:8px;}
+  .muted-box b{color:var(--text);}
+
+  /* ===== 标签徽章 ===== */
+  .tag{font-size:12px; padding:3px 8px; border-radius:99px; border:1px solid var(--border-soft);
+    color:var(--dim); white-space:nowrap; font-weight:500; display:inline-flex; align-items:center; gap:4px;}
+  .tag.up{color:var(--up); background:var(--up-soft); border-color:var(--up-border);}
+  .tag.down{color:var(--down); background:var(--down-soft); border-color:var(--down-border);}
+  .tag.warn{color:var(--warn); background:var(--warn-soft); border-color:var(--warn-border);}
+  .tag.info{color:var(--info); background:var(--info-soft); border-color:rgba(76,141,255,.4);}
+  .tag.flat{color:var(--flat);}
+  .chips{display:flex; gap:6px; flex-wrap:wrap;}
+
+  /* ===== 风险等级文字色(四档) ===== */
+  .rk-low{color:var(--rk-low);} .rk-mid{color:var(--rk-mid);} .rk-midhigh{color:var(--rk-midhigh);} .rk-high{color:var(--rk-high);} .rk-na{color:var(--flat);}
+
+  /* ===== HERO: 总体风险等级大徽章 ===== */
+  .hero{background:linear-gradient(160deg,var(--panel-2),var(--panel) 70%); border:1px solid var(--border); border-radius:var(--r); padding:16px; margin-bottom:var(--gap);}
+  .hero-eye{font-family:var(--fm); font-size:11px; letter-spacing:.14em; color:var(--faint); text-transform:uppercase; margin-bottom:6px;}
+  .hero-obj{font-family:var(--fd); font-size:14px; font-weight:700; margin-bottom:10px;}
+  .hero-obj small{font-family:var(--fb); font-weight:400; font-size:11.5px; color:var(--dim); margin-left:6px;}
+  .risk-badge{display:flex; align-items:center; gap:14px; padding:14px 16px; border-radius:10px; border:1px solid; margin:4px 0 10px;}
+  .risk-badge .rb-level{font-family:var(--fd); font-size:30px; font-weight:900; line-height:1;}
+  .risk-badge .rb-meta{font-size:11.5px; color:var(--dim); line-height:1.6;}
+  .risk-badge .rb-meta b{color:var(--text);}
+  .risk-badge.low{background:var(--rk-low-soft); border-color:rgba(22,199,132,.4);}
+  .risk-badge.mid{background:var(--rk-mid-soft); border-color:rgba(240,180,41,.4);}
+  .risk-badge.midhigh{background:var(--rk-midhigh-soft); border-color:rgba(255,138,61,.45);}
+  .risk-badge.high{background:var(--rk-high-soft); border-color:rgba(255,77,94,.45);}
+  .hero-desc{font-size:13px; color:var(--dim); line-height:1.75; margin-top:4px;}
+  .hero-desc b{color:var(--text);}
+  .hero-meta{display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:12px;}
+  .hero-meta .hm{background:var(--panel-3); border:1px solid var(--border-soft); border-radius:8px; padding:8px 10px;}
+  .hero-meta .hl{font-size:11px; color:var(--faint);}
+  .hero-meta .hv{font-size:12.5px; color:var(--dim); margin-top:2px; line-height:1.5;}
+
+  /* ===== 红旗命中顶部警示横幅(命中时强制显示) ===== */
+  .flag-banner{display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:10px;
+    background:var(--rk-high-soft); border:1px solid rgba(255,77,94,.5); border-left:4px solid var(--rk-high); margin-bottom:var(--gap);}
+  .flag-banner .fb-ico{font-size:18px; line-height:1.3;}
+  .flag-banner .fb-tx{font-size:13px; color:var(--text); line-height:1.6;}
+  .flag-banner .fb-tx b{color:var(--rk-high);}
+
+  /* ===== 红旗信号清单卡 ===== */
+  .flag-card{border-radius:10px; padding:13px 14px; border:1px solid; margin-bottom:var(--gap);}
+  .flag-card.hit{background:var(--rk-high-soft); border-color:rgba(255,77,94,.4);}
+  .flag-card.ok{background:var(--rk-low-soft); border-color:rgba(22,199,132,.4);}
+  .flag-card .fc-h{display:flex; align-items:center; gap:8px; font-family:var(--fd); font-size:14.5px; font-weight:700; margin-bottom:6px;}
+  .flag-item{background:var(--panel); border:1px solid rgba(255,77,94,.3); border-radius:8px; padding:10px 11px; margin-top:8px;}
+  .flag-item .fi-h{display:flex; justify-content:space-between; align-items:baseline; gap:8px; flex-wrap:wrap; margin-bottom:3px;}
+  .flag-item .fi-n{font-size:13px; font-weight:600; color:var(--text);}
+  .flag-item .fi-d{font-size:12px; color:var(--dim); line-height:1.7;}
+  .flag-item .fi-d b{color:var(--text);}
+
+  /* ===== 六层风险热力条 ===== */
+  .lvl-row{display:grid; grid-template-columns:88px 1fr 44px; gap:9px; align-items:center; padding:9px 0; border-bottom:1px solid var(--border-soft);}
+  .lvl-row:last-child{border-bottom:none;}
+  .lvl-name{font-size:12.5px;} .lvl-name small{display:block; color:var(--faint); font-size:10.5px; font-family:var(--fm); margin-top:1px;}
+  .lvl-segs{display:flex; gap:3px; height:18px;}
+  .lvl-seg{flex:1; border-radius:3px; background:var(--border-soft); position:relative;}
+  .lvl-seg.on{box-shadow:0 0 0 1px rgba(255,255,255,.06) inset;}
+  .lvl-seg.on.low{background:var(--rk-low);}
+  .lvl-seg.on.mid{background:var(--rk-mid);}
+  .lvl-seg.on.midhigh{background:var(--rk-midhigh);}
+  .lvl-seg.on.high{background:var(--rk-high);}
+  .lvl-tag{font-family:var(--fm); font-size:12px; font-weight:700; text-align:right;}
+  .lvl-note{grid-column:2/-1; font-size:11.5px; color:var(--dim); line-height:1.6; margin-top:-2px;}
+  .lvl-note b{color:var(--text);}
+  .lvl-legend{display:flex; gap:10px; flex-wrap:wrap; font-size:10.5px; color:var(--faint); margin-top:10px; font-family:var(--fm);}
+  .lvl-legend .lg{display:inline-flex; align-items:center; gap:4px;}
+  .lvl-legend .sw{width:9px; height:9px; border-radius:2px;}
+
+  /* ===== 系统性 vs 非系统性 两栏 ===== */
+  .duo-grid{display:grid; grid-template-columns:1fr 1fr; gap:var(--gap);}
+  .duo-card{background:var(--panel); border:1px solid var(--border); border-radius:var(--r); padding:13px;}
+  .duo-card.sys{border-left:3px solid var(--rk-high);}
+  .duo-card.non{border-left:3px solid var(--warn);}
+  .duo-card .dc-h{font-family:var(--fd); font-size:13.5px; font-weight:700; margin-bottom:3px;}
+  .duo-card .dc-s{font-size:11px; color:var(--faint); margin-bottom:9px; line-height:1.5;}
+  .duo-item{padding:8px 0; border-bottom:1px solid var(--border-soft);}
+  .duo-item:last-child{border-bottom:none;}
+  .duo-item .di-h{display:flex; justify-content:space-between; align-items:baseline; gap:6px; margin-bottom:2px;}
+  .duo-item .di-n{font-size:12.5px; font-weight:600; color:var(--text);}
+  .duo-item .di-d{font-size:11.5px; color:var(--dim); line-height:1.65;}
+
+  /* ===== 组合集中度(L6) ===== */
+  .conc-row{display:grid; grid-template-columns:96px 1fr 52px; gap:9px; align-items:center; padding:7px 0; border-bottom:1px solid var(--border-soft);}
+  .conc-row:last-child{border-bottom:none;}
+  .conc-name{font-size:12.5px;} .conc-name small{display:block; color:var(--faint); font-size:10.5px; margin-top:1px;}
+  .conc-track{height:10px; background:var(--border-soft); border-radius:4px; overflow:hidden;}
+  .conc-fill{height:100%; border-radius:4px;}
+  .conc-val{font-family:var(--fm); text-align:right; font-size:12.5px; font-weight:700;}
+  .conc-verdict{display:flex; gap:6px; flex-wrap:wrap; margin-top:12px;}
+
+  /* ===== 分层详析(details 折叠) ===== */
+  details{background:var(--panel); border:1px solid var(--border); border-radius:var(--r); margin-bottom:var(--gap); overflow:hidden;}
+  summary{list-style:none; cursor:pointer; padding:13px 14px; min-height:44px; display:flex; align-items:center; gap:10px; flex-wrap:wrap;}
+  summary::-webkit-details-marker{display:none;}
+  summary::before{content:'▸'; color:var(--dim); font-size:11px; transition:.15s; margin-right:1px;}
+  details[open] summary::before{content:'▾';}
+  summary:active{background:var(--panel-2);}
+  .sum-layer{font-family:var(--fd); font-weight:700; font-size:14px;}
+  .sum-code{font-family:var(--fm); color:var(--faint); font-size:11px;}
+  .det-body{padding:0 14px 14px;}
+  .det-block{padding:10px 0; border-top:1px solid var(--border-soft);}
+  .det-block:first-child{border-top:none;}
+  .det-label{font-family:var(--fd); font-size:12px; color:var(--text); font-weight:700; margin-bottom:5px;}
+  .det-text{font-size:13px; color:var(--dim); line-height:1.75;}
+  .det-text b{color:var(--text);}
+  .det-sub{background:var(--panel-2); border:1px solid var(--border-soft); border-radius:8px; padding:9px 11px; margin-top:8px;}
+  .det-sub .ds-h{font-size:12.5px; font-weight:600; color:var(--text); margin-bottom:3px;}
+  .det-sub .ds-d{font-size:12px; color:var(--dim); line-height:1.7;}
+  .sub-grid{display:grid; grid-template-columns:auto 1fr; gap:4px 10px; font-size:11.5px; margin-top:5px;}
+  .sub-grid .sg-l{color:var(--faint);} .sub-grid .sg-v{color:var(--dim);}
+
+  /* ===== 数据来源 / 缺口 ===== */
+  .src-row{display:grid; grid-template-columns:1fr auto; gap:8px; padding:7px 0; border-bottom:1px solid var(--border-soft); font-size:12px;}
+  .src-row:last-child{border-bottom:none;}
+  .src-row .sr-l{color:var(--dim);} .src-row .sr-l small{display:block; color:var(--faint); font-size:10.5px; margin-top:1px;}
+  .src-row .sr-r{font-family:var(--fm); font-size:11.5px; color:var(--faint); text-align:right; white-space:nowrap;}
+  .gap-item{display:flex; gap:8px; padding:7px 0; border-bottom:1px solid var(--border-soft); font-size:12px; color:var(--dim); line-height:1.65;}
+  .gap-item:last-child{border-bottom:none;}
+  .gap-item .dot{flex:none; width:5px; height:5px; border-radius:50%; margin-top:7px; background:var(--warn);}
+
+  /* ===== 页脚 / 免责 ===== */
+  footer{margin-top:30px; border-top:1px solid var(--border-soft); padding-top:16px;}
+  footer .meta{font-family:var(--fm); font-size:11.5px; color:var(--faint); margin-bottom:8px; line-height:1.7;}
+  footer .disc{font-size:11.5px; color:var(--faint); line-height:1.85;}
+  footer .disc b{color:var(--dim);}
+
+  @media (max-width:380px){
+    .duo-grid{grid-template-columns:1fr;}   /* 窄屏两栏分类堆叠,避免文字挤压 */
+    .hero-meta{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ============ 顶部窄标题 ============ -->
+<div class="top">
+  <span class="t">风险体检</span>
+  <span class="d">2026-07-04（周六）</span>
+  <a class="src-flag" href="#disc">⚠️ 数据源说明</a>
+</div>
+
+<!--
+  红旗命中时在此处(top 之后、hero 之前)插入顶部强制警示横幅,首屏即见"命中红旗→总体标高的原因";
+  未命中时不渲染本横幅,hero 的 risk-badge 已用文字+配色表达"红旗未命中"。示意:
+  <div class="flag-banner">
+    <span class="fb-ico">⚑</span>
+    <span class="fb-tx">命中 <b>N</b> 项一票否决级红旗——总体风险等级强制标"高",不被其他层面正面信息稀释。详见下方红旗信号清单。</span>
+  </div>
+-->
+
+<!-- ============ ① HERO: 总体风险等级 ============ -->
+<!--
+  模块: 总体风险等级 + 分析对象元信息
+  数据: 报告"风险速览"表的"总体风险等级"行 + 报告头(分析对象/分析范围/数据截止/触发背景)
+  形式: 大徽章(四档配色:低绿/中黄/中高橙/高红) + 一句话总体结论 + 对象/范围/截止/触发背景四宫格元信息
+  纪律: 红旗命中时总体强制为"高"且下方 flag-banner 必显,不被六层平均稀释(对应 SKILL.md L6 红旗优先规则)
+  缺失时: 总体等级缺失→徽章灰显并标"本次未给出总体等级"; 触发背景缺失→该格隐藏
+-->
+<section class="hero">
+  <div class="hero-eye">overall · 总体风险等级</div>
+  <div class="hero-obj">持仓组合 <small>示例科技 000001 / 示例股份 000002 / 示例行业ETF 159001</small></div>
+
+  <!-- 红旗命中时: class=high 且本徽章上方应出现 flag-banner; 未命中时 class 按实际等级(low/mid/midhigh/high) -->
+  <div class="risk-badge midhigh">
+    <div class="rb-level rk-midhigh">中高</div>
+    <div class="rb-meta">
+      <b>红旗信号：未命中</b><br>
+      行业集中度风险 + 系统性外部冲击叠加，组合防御性严重不足
+    </div>
+  </div>
+  <div class="hero-desc">三只持仓 100% 集中于<b>示例半导体产业链单一主线</b>，本周全球 AI 算力估值动荡下三者同涨同跌（相关性接近 1），集中度风险已从理论变为现实。个股层面无 L5.5 一票否决红旗，暴跌由<b>系统性外部冲击</b>驱动，非个股基本面恶化。</div>
+
+  <div class="hero-meta">
+    <div class="hm"><div class="hl">分析范围</div><div class="hv">L3 中观 + L5 个股 + L6 集中度</div></div>
+    <div class="hm"><div class="hl">数据截止</div><div class="hv num">2026-07-03 收盘</div></div>
+    <div class="hm"><div class="hl">触发背景</div><div class="hv">全球芯片股恐慌·周复盘前预跑</div></div>
+    <div class="hm"><div class="hl">红旗核实</div><div class="hv">risk_flags.json 为空·无待核实项</div></div>
+  </div>
+</section>
+
+<!-- ============ ② 红旗信号清单（置顶·一票否决级） ============ -->
+<!--
+  模块: 红旗信号清单(L5.5 一票否决级)
+  数据: 报告"红旗信号清单"——命中条目(名称/状态/依据) 或 "未发现"说明 + 与 risk_flags.json 历史 open 红旗的核实结果
+  形式: 命中→红底卡(.hit),每条红旗一个 .flag-item(名称+状态badge:持续/新增/已解除+依据); 未命中→绿底卡(.ok)
+  纪律: 命中任一红旗,总体等级强制为"高",此卡置于最前,不被其他层面正面信息稀释
+  缺失时: 报告未提及红旗→整块标"本次未做红旗排查"; 历史 open 红旗本次未核实→单独标注"待核实"
+-->
+<section class="sec">
+  <div class="sec-eye">red flags · 一票否决级红旗</div>
+  <div class="sec-title">红旗信号清单 <span class="sub">命中即总体标高，不被平均稀释</span></div>
+
+  <!-- 未命中时的绿底卡(命中时改为 .flag-card.hit 并用 .flag-item 列出每条) -->
+  <div class="flag-card ok">
+    <div class="fc-h">✓ 未发现一票否决级别的红旗信号</div>
+    <div class="dim" style="font-size:12px; line-height:1.75;">
+      三只标的均非 ST、无立案调查/行政处罚记录、无股权冻结、无海外制裁；Wind 公告检索（2026 年 7 月）无负面异常。示例行业ETF 为指数基金，标的分散，不适用个股红旗。<b class="down">历史红旗文件为空，无待核实项。</b>
+    </div>
+  </div>
+
+  <!--
+    命中红旗时改用如下结构(生成时按报告实际命中条目增减,以下为示意注释,默认不渲染):
+    <div class="flag-card hit">
+      <div class="fc-h">⚑ 命中 N 项一票否决级红旗</div>
+      <div class="flag-item">
+        <div class="fi-h"><span class="fi-n">示例公司甲 · 立案调查</span><span class="tag up">新增</span></div>
+        <div class="fi-d">证监会立案调查告知书（2026-07-02），事由待披露。<b>持续/新增/已解除</b>状态须与 risk_flags.json 核实结果一致。</div>
+      </div>
+    </div>
+  -->
+</section>
+
+<!-- ============ ③ 六层风险速览热力条 ============ -->
+<!--
+  模块: 六层风险速览(L1-L6)
+  数据: 报告"风险速览"表各层 等级 + 核心结论一句话
+  形式: 每层一行: 层名+对象小字 → 四段热力条(低|中|中高|高,当前等级段填色发光,其余灰) → 等级文字; 下方一行核心结论
+  纪律: 等级颜色+文字双编码; 红旗命中层(L5.5)等级强制高; 全球系统性叠加触发时在 L1/L2/L4 注明
+  缺失时: 某层"不适用"(如个股场景无 L6)→四段全灰、等级文字"不适用"、结论行隐藏; 某层等级缺失→四段全灰并标"—"
+-->
+<section class="sec">
+  <div class="sec-eye">layer scan · 六层风险速览</div>
+  <div class="sec-title">六层风险速览 <span class="sub">3 秒看清哪层风险高</span></div>
+  <div class="card">
+
+    <!-- L1: 等级=中 → 第2段(mid)亮黄 -->
+    <div class="lvl-row">
+      <div class="lvl-name">L1 宏观环境<small>国内周期 + 全球外溢</small></div>
+      <div class="lvl-segs">
+        <span class="lvl-seg"></span><span class="lvl-seg on mid"></span><span class="lvl-seg"></span><span class="lvl-seg"></span>
+      </div>
+      <div class="lvl-tag rk-mid">中</div>
+      <div class="lvl-note">美联储鹰派 + 美元走强压制高估值成长股，<b>全球外溢方向：负面</b>（传导渠道：流动性/汇率）。</div>
+    </div>
+
+    <!-- L2: 等级=中 -->
+    <div class="lvl-row">
+      <div class="lvl-name">L2 政策与制度<small>A股特有 + 海外政策外溢</small></div>
+      <div class="lvl-segs">
+        <span class="lvl-seg"></span><span class="lvl-seg on mid"></span><span class="lvl-seg"></span><span class="lvl-seg"></span>
+      </div>
+      <div class="lvl-tag rk-mid">中</div>
+      <div class="lvl-note">国内 AI 产业政策正面（国常会部署），但海外出口管制/制裁风险持续，政策面整体中性偏稳。</div>
+    </div>
+
+    <!-- L3: 等级=中高 → 第3段(midhigh)亮橙 -->
+    <div class="lvl-row">
+      <div class="lvl-name">L3 中观行业<small>半导体产业链</small></div>
+      <div class="lvl-segs">
+        <span class="lvl-seg"></span><span class="lvl-seg"></span><span class="lvl-seg on midhigh"></span><span class="lvl-seg"></span>
+      </div>
+      <div class="lvl-tag rk-midhigh">中高</div>
+      <div class="lvl-note">短期遭全球性估值冲击，但中长期产业逻辑未破；<b>待验证：Q3 云厂商 Capex 指引</b>。</div>
+    </div>
+
+    <!-- L4: 等级=中 -->
+    <div class="lvl-row">
+      <div class="lvl-name">L4 市场结构情绪<small>全球风险偏好共振</small></div>
+      <div class="lvl-segs">
+        <span class="lvl-seg"></span><span class="lvl-seg on mid"></span><span class="lvl-seg"></span><span class="lvl-seg"></span>
+      </div>
+      <div class="lvl-tag rk-mid">中</div>
+      <div class="lvl-note">A 股半导体与费城半导体、韩国 KOSPI 同步暴跌，<b>全球系统性因子主导</b>，国内政策对冲空间有限。</div>
+    </div>
+
+    <!-- L5: 等级=中 -->
+    <div class="lvl-row">
+      <div class="lvl-name">L5 微观个股<small>3 只标的 · L5.4/L5.5/L5.6</small></div>
+      <div class="lvl-segs">
+        <span class="lvl-seg"></span><span class="lvl-seg on mid"></span><span class="lvl-seg"></span><span class="lvl-seg"></span>
+      </div>
+      <div class="lvl-tag rk-mid">中</div>
+      <div class="lvl-note">无 L5.5 红旗；三只标的均受系统性冲击，个股自身无特殊恶化信号。示例股份连跌不回头为组合中最弱。</div>
+    </div>
+
+    <!-- L6: 等级=高 → 第4段(high)亮红 -->
+    <div class="lvl-row">
+      <div class="lvl-name">L6 集中度<small>组合层面</small></div>
+      <div class="lvl-segs">
+        <span class="lvl-seg"></span><span class="lvl-seg"></span><span class="lvl-seg"></span><span class="lvl-seg on high"></span>
+      </div>
+      <div class="lvl-tag rk-high">高</div>
+      <div class="lvl-note">三只持仓全部集中于半导体产业链，<b>行业集中度极端</b>，单一事件冲击下组合缺乏对冲。</div>
+    </div>
+
+    <div class="lvl-legend">
+      <span class="lg"><span class="sw" style="background:var(--rk-low);"></span>低</span>
+      <span class="lg"><span class="sw" style="background:var(--rk-mid);"></span>中</span>
+      <span class="lg"><span class="sw" style="background:var(--rk-midhigh);"></span>中高</span>
+      <span class="lg"><span class="sw" style="background:var(--rk-high);"></span>高</span>
+      <span class="lg"><span class="sw" style="background:var(--border-soft);"></span>不适用</span>
+    </div>
+  </div>
+
+  <div class="muted-box">
+    <b>全球系统性风险叠加判断：</b>L1（美联储鹰派 + 美元走强）+ L4（全球风险偏好共振）两层全球维度同时出现"高"信号，触发 L6 叠加规则——即使国内政策面为正面，总体风险等级上调至中高。
+  </div>
+</section>
+
+<!-- ============ ④ 系统性 vs 非系统性风险 ============ -->
+<!--
+  模块: 系统性 vs 非系统性风险分类(L6 产出)
+  数据: 报告"系统性风险 vs 非系统性风险"两栏(风险来源/内容/当前状态)
+  形式: 两栏卡片(移动端并排窄栏): 系统性(红左边框)=需仓位管理/对冲应对; 非系统性(黄左边框)=可分散持仓降低
+  缺失时: 某栏无内容→该卡标"本次未识别此类风险"; 整节缺失→标"本次未做分类"
+-->
+<section class="sec">
+  <div class="sec-eye">risk classification · 系统性 / 非系统性</div>
+  <div class="sec-title">风险分类 <span class="sub">哪些能分散，哪些只能靠仓位</span></div>
+  <div class="duo-grid">
+
+    <div class="duo-card sys">
+      <div class="dc-h">系统性风险</div>
+      <div class="dc-s">无法通过选股规避，需靠仓位管理 / 对冲应对</div>
+
+      <div class="duo-item">
+        <div class="di-h"><span class="di-n">全球 AI 算力估值动荡</span><span class="tag up">高·已触发</span></div>
+        <div class="di-d">示例海外事件动摇"算力持续稀缺"假设，费城半导体两日暴跌超 11%。Q3 Capex 指引若下修，估值中枢面临进一步下调。</div>
+      </div>
+      <div class="duo-item">
+        <div class="di-h"><span class="di-n">全球风险偏好共振</span><span class="tag up">高·发生中</span></div>
+        <div class="di-d">A 股半导体与费城半导体、KOSPI 高度同步暴跌，全球系统性因子主导。</div>
+      </div>
+      <div class="duo-item">
+        <div class="di-h"><span class="di-n">美联储鹰派信号</span><span class="tag warn">中·背景压制</span></div>
+        <div class="di-d">美元走强对高估值成长股估值构成压制。</div>
+      </div>
+    </div>
+
+    <div class="duo-card non">
+      <div class="dc-h">非系统性风险</div>
+      <div class="dc-s">可通过分散持仓 / 精选标的降低</div>
+
+      <div class="duo-item">
+        <div class="di-h"><span class="di-n">行业极端集中</span><span class="tag up">高</span></div>
+        <div class="di-d">三只持仓全部属半导体产业链，无任何跨行业对冲。详见下方"组合集中度"。</div>
+      </div>
+      <div class="duo-item">
+        <div class="di-h"><span class="di-n">示例股份</span><span class="tag warn">中高</span></div>
+        <div class="di-d">连续两日暴跌无反弹（跌停 + 续跌），组合中最弱标的；中报预告窗口临近。</div>
+      </div>
+      <div class="duo-item">
+        <div class="di-h"><span class="di-n">示例行业ETF</span><span class="tag warn">中</span></div>
+        <div class="di-d">虽分散个股但集中子行业，上游设备/材料对全球 Capex 周期最敏感。</div>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ============ ⑤ 组合集中度（L6，仅组合/多股对象适用） ============ -->
+<!--
+  模块: 组合集中度(L6 延伸判断)
+  数据: 报告"持仓组合集中度分析"表(维度/现状/风险判断)——行业占比/产业链环节/核心驱动因子
+  形式: 行业占比横向条(单向归一,生成时内联width) + 产业链环节文字 + 集中度结论 badge
+  缺失时: 单一个股/大盘对象无 L6→整块标"L6 不适用本对象"并隐藏; 占比数据缺失→条形隐藏、数值"—"
+-->
+<section class="sec">
+  <div class="sec-eye">concentration · 组合集中度（L6）</div>
+  <div class="sec-title">组合集中度 <span class="sub">同涨同跌的根源</span></div>
+  <div class="card">
+
+    <div class="conc-row">
+      <div class="conc-name">示例半导体产业链<small>PCB + 封测 + 设备</small></div>
+      <div class="conc-track"><div class="conc-fill" style="width:90.9%;background:var(--rk-high);"></div></div>
+      <div class="conc-val rk-high">100%</div>
+    </div>
+    <!-- 多行业组合时按报告实际行业占比增减行; 单一行业组合仅一行满格 -->
+
+    <div class="muted-box" style="margin-top:12px;">
+      <b>产业链环节：</b>示例科技（PCB/封装基板）+ 示例股份（先进封装）+ 示例行业ETF（设备/材料）——覆盖"材料→设备→封测"三环节，<b>虽跨环节但仍属同一大产业链，系统性风险下无法实现对冲</b>。<br>
+      <b>核心驱动因子：</b>三者均高度依赖全球 AI 资本开支周期，对"算力需求增速"同一变量高度敏感，<b>风险因子完全重叠，组合层面无分散效果</b>。
+    </div>
+
+    <div class="conc-verdict">
+      <span class="tag up">行业占比 极端集中</span>
+      <span class="tag up">风险因子 完全重叠</span>
+      <span class="tag warn">建议单一行业不超 40-50%</span>
+    </div>
+
+    <div class="takeaway" style="margin-top:10px;"><b>本周验证：</b>示例海外事件下三者 7/2 同时暴跌（各 -10%），相关性接近 1，集中度风险已从理论变为现实。若半导体行业出现持续性下行，组合将缺乏任何缓冲垫。</div>
+  </div>
+</section>
+
+<!-- ============ ⑥ 分层详细分析（details 折叠） ============ -->
+<!--
+  模块: 分层详细分析(L1-L6)
+  数据: 报告"分层详细分析"各层文字论述 + L5 个股逐只子块表(L5.1-L5.6 等级/异常项)
+  形式: 每层一个 <details>: summary=层名+等级 / 展开体=该层判断性文字 + (L5)个股子块卡
+  纪律: 各层结论互相矛盾时明说矛盾,不和稀泥; L5.5 红旗引用红旗清单不重复展开
+  缺失时: 某层不适用本对象→该 details 隐藏; 某子块缺失→标"本次未做"
+-->
+<section class="sec">
+  <div class="sec-eye">layer detail · 分层详析</div>
+  <div class="sec-title">分层详细分析 <span class="sub">点击展开各层判断</span></div>
+
+  <details>
+    <summary><span class="sum-layer">L1 宏观环境</span><span class="sum-code">国内周期 + 全球外溢</span><span class="tag warn" style="margin-left:auto;">中</span></summary>
+    <div class="det-body">
+      <div class="det-text">国内经济处过渡阶段，信号不清晰；海外层面美联储 6 月 FOMC 半数委员预计 2026 年内加息，美元走强对高估值成长股估值构成压制。<b>全球宏观外溢方向：负面</b>，传导渠道为流动性收紧与汇率压力。未来 1-3 个月跟踪：Q3 云厂商财报 Capex 指引、美联储 7 月议息会议。</div>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sum-layer">L3 中观行业</span><span class="sum-code">半导体 / PCB / 先进封装</span><span class="tag warn" style="margin-left:auto;">中高</span></summary>
+    <div class="det-body">
+      <div class="det-text">本周行业事件脉络：示例海外公司推出云算力业务引发"算力过剩"担忧 → 费城半导体两日暴跌超 11% → 亚太恐慌蔓延、A 股半导体大面积跌停。机构解读分歧明显（看多方认为存量资源变现、看空方担忧估值逻辑重构），<b>关键待验证变量：Q3 云厂商 Capex 指引是否实质性下修</b>。行业估值此前 6 月单月涨 26%+，积累大量获利盘，属"高涨幅 + 消息催化"的情绪性回调。</div>
+      <div class="det-sub">
+        <div class="ds-h">海外敞口风险</div>
+        <div class="ds-d">三只标的均涉及高度全球化的半导体产业链，对全球 AI 资本开支周期高度敏感。本次冲击源即为海外事件，<b>海外敞口是组合最大的系统性脆弱点</b>。</div>
+      </div>
+    </div>
+  </details>
+
+  <details open>
+    <summary><span class="sum-layer">L5 微观个股</span><span class="sum-code">3 只标的 · L5.4/L5.5/L5.6</span><span class="tag warn" style="margin-left:auto;">中</span></summary>
+    <div class="det-body">
+      <div class="det-block">
+        <div class="det-label">示例科技（000001）— PCB 龙头</div>
+        <div class="sub-grid">
+          <span class="sg-l">L5.5 事件性</span><span class="sg-v rk-low">低 · 无红旗，系统性冲击驱动</span>
+          <span class="sg-l">L5.4 估值</span><span class="sg-v rk-mid">中 · 周内振幅 22.8% 高位逆转</span>
+          <span class="sg-l">L5.6 技术面</span><span class="sg-v rk-midhigh">中高 · 一字跌停筹码松动</span>
+        </div>
+        <div class="det-text" style="margin-top:6px;">持仓成本 124.82，现价 135.35，浮盈约 8.4%；距周中高点已回撤 14.5%。7/3 收盘脱离日内低点约 7.5%，<b>短线有资金承接迹象</b>。</div>
+      </div>
+
+      <div class="det-block">
+        <div class="det-label">示例股份（000002）— 先进封装龙头</div>
+        <div class="sub-grid">
+          <span class="sg-l">L5.5 事件性</span><span class="sg-v rk-low">低 · 无红旗</span>
+          <span class="sg-l">L5.4 估值</span><span class="sg-v rk-midhigh">中高 · 回撤 20.5% 组合最弱</span>
+          <span class="sg-l">L5.6 技术面</span><span class="sg-v rk-high">高 · 连跌不回头无承接</span>
+        </div>
+        <div class="det-text" style="margin-top:6px;">持仓成本 76.18，现价 90.88，浮盈约 19.3%。7/2 跌停后 7/3 续跌 -5.3% 无有效反弹，与示例科技不同。<b>可能存在"拉高出货"特征，需后续核实是否有机构集中减持</b>。</div>
+      </div>
+
+      <div class="det-block">
+        <div class="det-label">示例行业ETF（159001）— 半导体设备</div>
+        <div class="sub-grid">
+          <span class="sg-l">L5.5 事件性</span><span class="sg-v rk-na">不适用 · 指数基金</span>
+          <span class="sg-l">L5.4 估值</span><span class="sg-v rk-mid">中 · 周内振幅 20.4%</span>
+          <span class="sg-l">L5.6 技术面</span><span class="sg-v rk-mid">中 · 规模破 180 亿流动性充裕</span>
+        </div>
+        <div class="det-text" style="margin-top:6px;">持仓成本 3.03，现价 4.12，浮盈约 36.1%。ETF 分散了单个股风险，但仍高度暴露于半导体设备子行业的系统性风险。</div>
+      </div>
+
+      <div class="det-sub">
+        <div class="ds-h">分层矛盾明说</div>
+        <div class="ds-d">L5.5 全部"低/不适用"（无个股红旗），但 L6 集中度"高"——<b>个股层面无雷，组合层面却有雷</b>。本次暴跌不是个股出了问题，而是集中度把系统性冲击放大了三倍。结论不能取折中"中风险"敷衍，总体定中高正是反映这一分层矛盾。</div>
+      </div>
+    </div>
+  </details>
+
+  <details>
+    <summary><span class="sum-layer">L6 风险综合</span><span class="sum-code">系统性叠加 + 集中度</span><span class="tag up" style="margin-left:auto;">高</span></summary>
+    <div class="det-body">
+      <div class="det-text">L1（全球宏观）+ L4（全球风险偏好）两层全球维度同时"高"，触发全球系统性风险叠加规则，总体上调一档。叠加组合层面 L6 行业极端集中，<b>双重放大</b>。组合在当前集中度下面临"涨时同涨、跌时同跌"的单边风险，本周已充分暴露。</div>
+    </div>
+  </details>
+</section>
+
+<!-- ============ ⑦ 数据来源与缺口 ============ -->
+<!--
+  模块: 数据来源与缺口
+  数据: 报告"数据来源"表(数据大类/来源工具/层级/备注) + "数据缺口"列表
+  形式: 来源逐行(大类+备注 / 工具+层级) + 缺口列表(黄点+说明)
+  缺失时: 来源表缺失→标"本次未记录数据来源"; 无缺口→显示"本次无明显数据缺口"
+-->
+<section class="sec">
+  <div class="sec-eye">data provenance · 来源与缺口</div>
+  <div class="sec-title">数据来源与缺口 <span class="sub">如实标注，不掩盖</span></div>
+  <div class="card">
+    <div class="src-row"><div class="sr-l">行情数据<small>持仓个股 / ETF</small></div><div class="sr-r">wind_mcp · primary</div></div>
+    <div class="src-row"><div class="sr-l">行业新闻与事件<small>L3 中观</small></div><div class="sr-r">wind_mcp · primary</div></div>
+    <div class="src-row"><div class="sr-l">公告检索<small>红旗排查</small></div><div class="sr-r">wind_mcp · 0 条</div></div>
+    <div class="src-row"><div class="sr-l">宏观背景<small>L1/L2 复用</small></div><div class="sr-r">macro_context · 复用</div></div>
+    <div class="src-row"><div class="sr-l">L5.6 技术面<small>简化定性</small></div><div class="sr-r">未跑引擎 · 简化</div></div>
+  </div>
+
+  <div class="card" style="margin-top:10px;">
+    <div class="det-label" style="margin-bottom:8px;">数据缺口</div>
+    <div class="gap-item"><span class="dot"></span>未对三只持仓做完整 L5.1（财务）/ L5.2（治理）/ L5.3（经营）逐项展开——周度体检聚焦 L5.4/L5.5/L5.6。如需全面排查，建议单独触发 ashare-risk-assessment 全量 L1-L5。</div>
+    <div class="gap-item"><span class="dot"></span>L5.6 技术面为简化定性，未运行 compute_indicators.py 引擎计算 ma60/120/250、alpha 等中期指标——将在周复盘第 0 步独立运行。</div>
+    <div class="gap-item"><span class="dot"></span>未取得 VIX 精确数值，全球风险偏好判断基于新闻综合信息。</div>
+  </div>
+</section>
+
+<!-- ============ 页脚：数据源说明 + 免责声明 ============ -->
+<footer id="disc">
+  <div class="meta">报告生成：2026-07-04（周六） · 数据截止：2026-07-03 收盘 · 触发方式：周复盘前风险预跑<br>配套风险体检：output/ashare-risk-assessment/risk_持仓组合_2026-07-04.md</div>
+  <div class="disc">
+    <b>⚠️ 重要声明：</b>本看板是对 ashare-risk-assessment 风险评估报告的可视化复刻，所有风险等级均为<b>定性判断，不是精确预测</b>。红旗信号优先于加权平均——命中任一一票否决级红旗，总体等级即强制标"高"，不被其他层面正面信息稀释。L5.5 红旗状态（持续/新增/已解除）须与 <span class="num">risk_flags.json</span> 核实结果一致。本看板<b>不构成买入、卖出或持有的投资建议</b>，最终投资决策及其风险由投资者结合自身风险承受能力自行判断和承担。
+  </div>
+</footer>
+
+<!-- 集中度占比条宽度已在生成时按顶部注释规则预算并内联到 style;不依赖 <script>(邮件客户端会删除且不执行 JS) -->
+</body>
+</html>
