@@ -3,7 +3,7 @@
 name: 周复盘看板
 match: 周复盘,周度复盘,周日复盘,本周复盘,周末复盘,复盘这一周,weekly review,周报,周度回顾
 target: A股周复盘报告(ashare-weekly-review 产出)的移动端看板,周度中期视角(ma60/120/250、alpha、ADX、板块周度轮动)
-data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市场情绪周度,VIX周度趋势定性推断,指数中期技术面,持仓复盘(alpha中期均线逻辑核实对称情景持有期窗口),自选股复盘,关注板块轮动持续性,短期机会发掘,未结事项清算,下周事件预告,下周重点关注
+data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市场情绪周度,VIX周度趋势定性推断,指数中期技术面,持仓复盘(alpha中期均线逻辑核实对称情景),自选股复盘,关注板块轮动持续性,短期机会发掘,未结事项清算,下周事件预告,下周重点关注
 -->
 <!DOCTYPE html>
 <html lang="zh-CN">
@@ -542,15 +542,15 @@ data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市�
 <!-- ============ ⑥ 持仓复盘(核心·中长期持仓栏) ============ -->
 <!--
   模块: 持仓复盘 —— 周复盘核心,中长期持仓栏
-  数据: 报告"持仓复盘"逐只(本周表现alpha/beta / 中期均线趋势体检 / 核心逻辑核实 / 周度对称条件式情景双向 / 持有期窗口提示 / 结论)
-  形式: 每只一个 <details>: 摘要=代码名称+本周涨跌+结论标签 / 展开体=六维明细(alpha/中期均线/逻辑核实/对称情景/持有期窗口/结论)
+  数据: 报告"持仓复盘"逐只(本周表现alpha/beta / 中期均线趋势体检 / 核心逻辑核实 / 周度对称条件式情景双向 / 结论)
+  形式: 每只一个 <details>: 摘要=代码名称+本周涨跌+结论标签 / 展开体=五维明细(alpha/中期均线/逻辑核实/对称情景/结论)
   分栏: 本块为【中长期持仓】栏,与下方"短期机会"分栏呈现、口径不混用
-  缺失时: alpha缺失(如ETF)→显示"ETF不算alpha"说明; buy_date null→持有期窗口块标"无法计算,建议补录"; 纪律线null→纪律块标"无预设纪律线可核对"; 某维度缺失→该块灰显"本次未提供"
+  缺失时: alpha缺失(如ETF)→显示"ETF不算alpha"说明; 某维度缺失→该块灰显"本次未提供"
 -->
 <section class="sec">
   <div class="sec-eye">holdings · 持仓复盘 · 中长期持仓栏</div>
   <div class="sec-title">持仓复盘 <span class="sub">alpha/beta · 中期均线体检 · 逻辑核实 · 对称情景</span></div>
-  <div class="takeaway" style="margin-bottom:10px;">持仓快照：000001 示例科技 / 159001 示例行业ETF / 000002 示例股份。<b>buy_date、position_pct、止盈止损线均为 null</b>，持有期窗口与纪律线核对无法进行（见各卡片提示）。</div>
+  <div class="takeaway" style="margin-bottom:10px;">持仓快照：000001 示例科技 / 159001 示例行业ETF / 000002 示例股份。</div>
 
   <!-- 000001 示例科技（默认展开示范完整结构） -->
   <details open>
@@ -581,12 +581,8 @@ data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市�
         <div class="dim-text">若 <b>下周回踩 MA20（约 137 元）一带缩量企稳</b>，则短线回调洗盘完成、中期上行趋势延续得到确认；若 <b>有效跌破 MA20 且 MACD 高位死叉</b>，则需把该持仓的基本面逻辑重新核实一遍（此为提示核实，非卖出信号）。<em class="nd-tag">参考位，非下单指令</em></div>
       </div>
       <div class="dim-block">
-        <div class="dim-label"><span class="ix">05</span>持有期窗口提示</div>
-        <div class="disc-box muted">buy_date 为 null，持有期窗口无法计算，建议补录 buy_date。</div>
-      </div>
-      <div class="dim-block">
-        <div class="dim-label"><span class="ix">06</span>结论</div>
-        <div class="dim-text">中期趋势健康、alpha 稳健、逻辑未变。本周波动主要是个股 alpha 层面的正常回调。无预设纪律线可核对。</div>
+        <div class="dim-label"><span class="ix">05</span>结论</div>
+        <div class="dim-text">中期趋势健康、alpha 稳健、逻辑未变。本周波动主要是个股 alpha 层面的正常回调。</div>
       </div>
     </div>
   </details>
@@ -621,12 +617,8 @@ data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市�
         <div class="dim-text">若 <b>下周量能收缩、在 MA5（约 95 元）或 MA10（约 86 元）附近企稳</b>，则短期过热修正完成、中期上行趋势延续（支撑来自 78 亿扩产基本面叙事）；若 <b>放量跌破 MA10 且 MACD 死叉</b>，则短期调整空间可能打开至 MA20（约 81 元），届时需复查持仓基本面是否支撑继续持有。<em class="nd-tag">参考位，非下单指令</em></div>
       </div>
       <div class="dim-block">
-        <div class="dim-label"><span class="ix">05</span>持有期窗口提示</div>
-        <div class="disc-box muted">buy_date 为 null，无法计算。</div>
-      </div>
-      <div class="dim-block">
-        <div class="dim-label"><span class="ix">06</span>结论</div>
-        <div class="dim-text">中期趋势强劲、alpha 极强、逻辑强化。但短期过热指标密集，周五 -3.15% 是三涨停后的健康降温。无预设纪律线可核对——鉴于过热信号密集，建议关注（非操作指令）。</div>
+        <div class="dim-label"><span class="ix">05</span>结论</div>
+        <div class="dim-text">中期趋势强劲、alpha 极强、逻辑强化。但短期过热指标密集，周五 -3.15% 是三涨停后的健康降温。鉴于过热信号密集，建议关注（非操作指令）。</div>
       </div>
     </div>
   </details>
@@ -658,18 +650,14 @@ data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市�
         <div class="dim-text">若 <b>下周在布林上轨（约 4.16）附近温和整理、以横代跌</b>，则强趋势以"时间换空间"方式延续；若 <b>快速回踩 MA5(3.88) 或 MA10(3.61)</b>，则短期过热修正启动——鉴于 bias20 达 +28%，这种修正可能以单日大阴线方式出现。<em class="nd-tag">参考位，非下单指令</em></div>
       </div>
       <div class="dim-block">
-        <div class="dim-label"><span class="ix">05</span>持有期窗口提示</div>
-        <div class="disc-box muted">ETF，buy_date 为 null。</div>
-      </div>
-      <div class="dim-block">
-        <div class="dim-label"><span class="ix">06</span>结论</div>
-        <div class="dim-text">中期趋势超级强劲、逻辑强化，但<b>过热信号在本周所有持仓中最密集</b>（RSI92 + J≈100 + bias +28% + ADX54）。即使不设止盈线也值得重点关注短期修正风险——ADX 虽强但 RSI92+J 值 100 的组合历史上常对应短期高点。无预设纪律线可核对。</div>
+        <div class="dim-label"><span class="ix">05</span>结论</div>
+        <div class="dim-text">中期趋势超级强劲、逻辑强化，但<b>过热信号在本周所有持仓中最密集</b>（RSI92 + J≈100 + bias +28% + ADX54）。值得重点关注短期修正风险——ADX 虽强但 RSI92+J 值 100 的组合历史上常对应短期高点。</div>
       </div>
     </div>
   </details>
 
   <div class="muted-box">
-    <b>仓位结构周度回顾：</b>position_pct 均为 null，无法核对是否偏离上限，建议补录。三只持仓集中在<b>半导体/PCB/封测 = AI 算力与半导体产业链单一主线</b>，板块集中度高——提示注意单一主线回撤时的集中风险（本周五该主线集体承压已现端倪）。
+    <b>仓位结构周度回顾：</b>三只持仓集中在<b>半导体/PCB/封测 = AI 算力与半导体产业链单一主线</b>，板块集中度高——提示注意单一主线回撤时的集中风险（本周五该主线集体承压已现端倪）。
   </div>
 </section>
 
@@ -934,7 +922,7 @@ data: 周度总览结论,指数周涨跌幅,周内节奏,资金流向周度,市�
 <footer id="disc">
   <div class="meta">报告完成时间：2026-06-28（周日上午） · 数据截止：2026-06-26 收盘<br>数据源：compute_indicators.py（周度中期视角，无 Wind MCP 核对）；消息面来自本周两份晚间复盘 + 宏观记忆校准</div>
   <div class="disc">
-    <b>⚠️ 重要声明：</b>本报告技术指标由 compute_indicators.py 计算（无 Wind MCP 核对），口径取周度中期视角。<b>VIX 精确值未能从可用专业源取得，为基于全球 risk-off 收敛证据的定性推断</b>。所有均线/支撑/压力价位均为参考位，<b>非下单指令</b>。条件式情景为"若…则…"对称可能性，<b>不构成对下周涨跌方向的预测</b>。短期机会与中长期持仓分栏呈现、口径不混用。持仓 buy_date/position_pct/纪律线均为 null，持有期窗口与纪律线核对无法进行，建议补录。中长期持仓最低持有 5 个交易日纪律不受单一消息影响。投资决策请自行判断。
+    <b>⚠️ 重要声明：</b>本报告技术指标由 compute_indicators.py 计算（无 Wind MCP 核对），口径取周度中期视角。<b>VIX 精确值未能从可用专业源取得，为基于全球 risk-off 收敛证据的定性推断</b>。所有均线/支撑/压力价位均为参考位，<b>非下单指令</b>。条件式情景为"若…则…"对称可能性，<b>不构成对下周涨跌方向的预测</b>。短期机会与中长期持仓分栏呈现、口径不混用。投资决策请自行判断。
   </div>
 </footer>
 

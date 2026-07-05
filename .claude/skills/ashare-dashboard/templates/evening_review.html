@@ -538,14 +538,14 @@ data: 总览结论,持仓速览,指数表现,市场情绪涨跌家数,主力资�
 <!-- ============ ⑥ 持仓 / 自选 四维深度卡片（中长期持仓栏） ============ -->
 <!--
   模块: 持仓/自选股四维深度卡片 —— 晚间复盘技术深度主战场
-  数据: 报告"持仓/自选股四维深度卡片"逐只(技术面/资金面/消息面/相对强弱/对称情景/纪律校准)
-  形式: 每只一个 <details>: 摘要=代码名称+涨跌+状态(扫描层) / 展开体=四维明细+对称情景(双向)+纪律校准
+  数据: 报告"持仓/自选股四维深度卡片"逐只(技术面/资金面/消息面/相对强弱/对称情景/技术位参考)
+  形式: 每只一个 <details>: 摘要=代码名称+涨跌+状态(扫描层) / 展开体=四维明细+对称情景(双向)+技术位参考
   分栏: 本块为【中长期持仓/自选】栏,与下方"短期机会"分栏呈现、口径不混用
-  缺失时: 某维度缺失→该块灰显并标"本次未提供"; alpha 缺失(如ETF)→显示"ETF不算alpha"说明; 自选无持仓→纪律块标"无持仓/无纪律线"
+  缺失时: 某维度缺失→该块灰显并标"本次未提供"; alpha 缺失(如ETF)→显示"ETF不算alpha"说明; 自选无持仓→技术位参考块标"无持仓"
 -->
 <section class="sec">
   <div class="sec-eye">watchlist · 四维深度卡片 · 中长期持仓栏</div>
-  <div class="sec-title">持仓 / 自选股 <span class="sub">技术 · 资金 · 消息 · 相对强弱 · 纪律校准</span></div>
+  <div class="sec-title">持仓 / 自选股 <span class="sub">技术 · 资金 · 消息 · 相对强弱 · 技术位参考</span></div>
 
   <!-- 000001 示例科技（默认展开示范完整结构） -->
   <details open>
@@ -584,13 +584,13 @@ data: 总览结论,持仓速览,指数表现,市场情绪涨跌家数,主力资�
         <div class="dim-text">若 <b>回踩 MA20（约 137.42）附近获支撑且缩量企稳</b>，则短期回调洗盘完成、上行趋势延续；若 <b>有效跌破 MA20 且 MACD 高位死叉</b>，则需警惕中期进入高位整理区间（122-156），但中长期逻辑未变。<em class="nd-tag">参考位，非下单指令</em></div>
       </div>
       <div class="dim-block">
-        <div class="dim-label"><span class="ix">06</span>纪律校准</div>
+        <div class="dim-label"><span class="ix">06</span>技术位参考</div>
         <div class="alpha-chips">
           <div class="alpha-chip"><div class="al">现价</div><div class="av num">147.28</div></div>
           <div class="alpha-chip"><div class="al">成本</div><div class="av num">124.82</div></div>
           <div class="alpha-chip"><div class="al">距 MA20</div><div class="av num">约 6.7%</div></div>
         </div>
-        <div class="disc-box calm">用户未预设止盈/止损/加仓线 → 无纪律线可核对。距支撑 122.22 约 17%。未满 5 日持有限制不适用（buy_date 为 null）。</div>
+        <div class="disc-box calm">现价 147.28 高于成本 124.82（浮盈约 18%），下方支撑 122.22 距现价约 17%。均为参考位，非下单指令。</div>
       </div>
     </div>
   </details>
@@ -633,13 +633,13 @@ data: 总览结论,持仓速览,指数表现,市场情绪涨跌家数,主力资�
         <div class="dim-text">若 <b>量能收缩、在 MA5(约 95.42)/MA10(约 86.15) 附近企稳</b>，则短期过热修正完成、中期上行延续（支撑来自 78 亿扩产基本面叙事）；若 <b>放量跌破 MA10 且 MACD 死叉</b>，则短期调整空间可能打开至 MA20(约 81)。<em class="nd-tag">参考位，非下单指令</em></div>
       </div>
       <div class="dim-block">
-        <div class="dim-label"><span class="ix">06</span>纪律校准</div>
+        <div class="dim-label"><span class="ix">06</span>技术位参考</div>
         <div class="alpha-chips">
           <div class="alpha-chip"><div class="al">现价</div><div class="av num">100.89</div></div>
           <div class="alpha-chip"><div class="al">成本</div><div class="av num">77.79</div></div>
           <div class="alpha-chip"><div class="al">距 MA10</div><div class="av num">约 14.6%</div></div>
         </div>
-        <div class="disc-box">用户未预设止盈/止损/加仓线 → 无法核对纪律线。距 MA20(81.05) 约 19.7%。未满 5 日持有限制不适用（buy_date 为 null）。</div>
+        <div class="disc-box">现价 100.89 高于成本 77.79（浮盈约 30%），下方 MA20 支撑 81.05 距现价约 19.7%。均为参考位，非下单指令。</div>
       </div>
     </div>
   </details>
@@ -678,13 +678,13 @@ data: 总览结论,持仓速览,指数表现,市场情绪涨跌家数,主力资�
         <div class="dim-text">若 <b>在布林上轨附近温和整理、以横代跌</b>，则强趋势以"时间换空间"方式延续，为下一波上行积累能量；若 <b>快速回踩 MA5(3.88)/MA10(3.61)</b>，则短期过热修正开始——鉴于 bias20 达 +28%，这种修正可能以单日大阴线的方式出现。<em class="nd-tag">参考位，非下单指令</em></div>
       </div>
       <div class="dim-block">
-        <div class="dim-label"><span class="ix">06</span>纪律校准</div>
+        <div class="dim-label"><span class="ix">06</span>技术位参考</div>
         <div class="alpha-chips">
           <div class="alpha-chip"><div class="al">现价</div><div class="av num">4.15</div></div>
           <div class="alpha-chip"><div class="al">成本</div><div class="av num">3.11</div></div>
           <div class="alpha-chip"><div class="al">距 MA10</div><div class="av num">约 13.0%</div></div>
         </div>
-        <div class="disc-box">⚠️ 过热信号密集，即使不设止盈线也建议关注——ADX 虽强但 RSI 92 + J 值 100 的组合历史上常对应短期高点，未满 5 日也不建议此时追涨。</div>
+        <div class="disc-box">⚠️ 过热信号密集，建议关注——ADX 虽强但 RSI 92 + J 值 100 的组合历史上常对应短期高点，不建议此时追涨。</div>
       </div>
     </div>
   </details>
@@ -726,8 +726,8 @@ data: 总览结论,持仓速览,指数表现,市场情绪涨跌家数,主力资�
         <div class="dim-text">若 <b>在 MA20(约 184) 附近缩量企稳且后续无基本面利空</b>，则本次跌停可能是"恐慌性补跌"、中期趋势未坏；若 <b>有效跌破 MA20 且后续放量下行</b>，则中期进入调整结构（下一支撑约 138）——届时需核查基本面叙事是否生变。<em class="nd-tag">参考位，非下单指令</em></div>
       </div>
       <div class="dim-block">
-        <div class="dim-label"><span class="ix">06</span>纪律校准</div>
-        <div class="disc-box calm">自选股，无持仓，无纪律线 → 继续观察，不急于建仓——跌停次日通常还有惯性，且需先确认无基本面利空。</div>
+        <div class="dim-label"><span class="ix">06</span>技术位参考</div>
+        <div class="disc-box calm">自选股，无持仓 → 继续观察，不急于建仓——跌停次日通常还有惯性，且需先确认无基本面利空。</div>
       </div>
     </div>
   </details>
@@ -769,8 +769,8 @@ data: 总览结论,持仓速览,指数表现,市场情绪涨跌家数,主力资�
         <div class="dim-text">若 <b>超跌反弹能放量站回 MA250(约 20.80) 且企稳</b>，则中期趋势有修复可能；若 <b>继续在 MA250 下方运行且空头排列强化</b>，则中期走弱趋势延续——届时需重新评估自选逻辑。<em class="nd-tag">参考位，非下单指令</em></div>
       </div>
       <div class="dim-block">
-        <div class="dim-label"><span class="ix">06</span>纪律校准</div>
-        <div class="disc-box calm">自选股，无持仓，无纪律线 → 当前技术面不支持建仓——等放量站回 MA250 再考虑。支撑 18.88 / 压力 24.03。</div>
+        <div class="dim-label"><span class="ix">06</span>技术位参考</div>
+        <div class="disc-box calm">自选股，无持仓 → 当前技术面不支持建仓——等放量站回 MA250 再考虑。支撑 18.88 / 压力 24.03。</div>
       </div>
     </div>
   </details>
