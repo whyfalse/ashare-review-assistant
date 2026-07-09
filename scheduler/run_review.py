@@ -390,13 +390,19 @@ def resolve_report_body(skill: str, stdout_report: str, run_start_ts: float) -> 
 
 # ---------- 数据看板兜底生成 ----------
 def ensure_dashboard(skill: str, cfg: dict, run_start_ts: float) -> Optional[Path]:
-    """确保本次运行产出了数据看板 HTML, 没有则兜底单独跑一次 ashare-dashboard。
+    """渲染本次复盘的数据看板 HTML。
 
-    review-orchestrator 的复盘链路较长(周复盘: 风险预跑 → 周复盘 → 宏观完整维护 → 看板),
-    无头模式下有时走不到最后的看板步骤就返回了, 导致 output/ashare-dashboard/ 为空。
-    看板是纯展示层(读落盘报告 → 套模板 → 出 HTML), 不依赖编排链路的上下文, 因此这里
-    在首轮没产出看板时, 单独发一个聚焦的 claude 调用: 直接读落盘报告文件, 调
-    ashare-dashboard 渲染。失败不抛错, 由调用方退回纯文本邮件。
+    设计上复盘与看板是两次独立的 claude 调用: 主 prompt(见 _DEFAULT_SKILL_PROMPT)
+    只做复盘, 看板统一由本函数生成。原因是 review-orchestrator 编排链路较长
+    (周复盘: 风险预跑 → 周复盘 → 宏观完整维护 → 看板), 看板塞在最后经常来不及
+    完成就返回, 导致首轮无 HTML 产出; 拆分后每次调用更短更可靠。
+
+    看板是纯展示层(读落盘报告 → 按规格文档渲染 → 出 HTML), 不依赖编排链路的上下文。
+    本函数直接读落盘报告, 单独发一个聚焦的 claude 调用调 ashare-dashboard 渲染。
+    失败不抛错, 由调用方退回纯文本邮件。
+
+    注意: 函数名保留 ensure_dashboard 是历史命名(早期看板在主 prompt 里, 这里是兜底);
+    现在看板已剥离到本函数, 首轮没有 HTML 是预期行为, 非异常。
     """
     # 先定位本次落盘报告: 既是兜底渲染的数据源, 也用于按报告日期配对看板。
     report_path = find_report_markdown(skill, since_ts=run_start_ts)
@@ -415,24 +421,24 @@ def ensure_dashboard(skill: str, cfg: dict, run_start_ts: float) -> Optional[Pat
     ccfg = cfg.get("claude", {}) or {}
     # 看板渲染只是展示层, 给一个比完整复盘短的超时(默认 600s), 也可在 config 单独配。
     timeout = int(ccfg.get("dashboard_timeout_seconds", 600))
-    # 显式指定模板目录, 避免 headless 模式下 skill 从项目根找 templates/ 找不到
-    # (ashare-dashboard 技能使用 .claude/skills/ashare-dashboard/templates/ 下的模板)。
+    # 显式指定规格目录, 避免 headless 模式下 skill 从项目根找 templates/ 找不到
+    # (ashare-dashboard 技能使用 .claude/skills/ashare-dashboard/templates/ 下的 md 规格文档)。
     template_dir = str(PROJECT_ROOT / ".claude" / "skills" / "ashare-dashboard" / "templates")
     prompt = (
         f"请读取报告文件 {report_path} 的完整内容作为数据源，调用 ashare-dashboard 技能，"
         f"将其渲染为移动端数据看板 HTML 单文件，保存到 output/ashare-dashboard/ 目录。"
-        f"文件名按 ashare-dashboard 技能规则从匹配到的模板派生。"
-        f"模板目录位于 {template_dir}，其中已有以下模板文件：weekly_review.html、"
-        f"evening_review.html、intraday_review.html、morning_brief.html，"
-        f"请按报告类型匹配对应模板。"
+        f"文件名按 ashare-dashboard 技能规则从匹配到的规格文档派生。"
+        f"规格目录位于 {template_dir}，其中已有以下规格文档：weekly_review.md、"
+        f"evening_review.md、intraday_review.md、morning_brief.md、risk_assessment.md，"
+        f"请按报告类型匹配对应规格文档，按规格描述的架构/模块/样式生成 HTML。"
         f"若 output/ashare-dashboard/ 下已存在同日的同名看板文件，必须重新写入覆盖"
         f"（不要复用旧文件、不要因已存在就跳过写盘），确保看板内容严格基于本次数据源报告。"
         f"只做展示层渲染：不重新取数、不做新分析、不编造数据源里没有的内容，"
-        f"数据缺失按模板规则占位。"
+        f"数据缺失按规格文档规则占位。"
         f"必须实际调用 Write 工具把 HTML 写入磁盘，写盘后回读该文件确认存在且非空；"
         f"不得只在回复里描述“已生成/文件路径/大小”而实际未写盘——未真正落盘的看板等同于未生成。"
     )
-    log(f"首轮未产出数据看板, 启动看板渲染兜底调用 (超时 {timeout}s)")
+    log(f"复盘已完成, 启动看板渲染调用 (超时 {timeout}s) —— 看板已从主 prompt 剥离, 统一在此生成, 非异常")
     try:
         out = _run_claude(prompt, ccfg, timeout, "看板渲染兜底调用")
         # 记录 stdout 摘要便于排查(完整输出可能很长, 截取前 500 字符)
@@ -576,7 +582,10 @@ def main():
             if dashboard_enabled:
                 html_path = ensure_dashboard(skill, cfg, run_start_ts)
                 if html_path:
-                    html_body = html_path.read_text(encoding="utf-8") + render_risk_appendix_html(date_str)
+                    # 暂时不追加风险识别附录：编排层风险接力拉长链路导致无头模式下看板
+                    # 经常未生成最终版就被发出。先只发复盘看板，流程跑通后再恢复
+                    # 风险附录（render_risk_appendix_html 函数保留待用）。
+                    html_body = html_path.read_text(encoding="utf-8")
                     send_email(ecfg, f"{prefix} {skill} {date_str}", html_body, log, body_type="html")
                 else:
                     log("数据看板 HTML 文件未找到, 退回纯文本邮件(发送落盘报告全文)")
