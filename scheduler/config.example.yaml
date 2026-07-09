@@ -49,6 +49,10 @@ claude:
   timeout_seconds: 1800              # 单次复盘超时(秒), 超时判失败
   dashboard_timeout_seconds: 600     # 看板兜底渲染调用超时(秒); 看板是展示层, 默认比复盘短
   retry_timeout_seconds: 1500        # 报告落盘兜底重试超时(秒); 编排层未落盘时直调 Skill 重跑, 无接力故比主调短
+  # risk_timeout_seconds: 1800       # 风险评估独立调用超时(秒); 不配则回退到 timeout_seconds。
+                                     # 周复盘/事件触发时, scheduler 会按周复盘必跑或红旗关键词命中,
+                                     # 独立调 review-orchestrator 路由到 ashare-risk-assessment,
+                                     # 完成后单独发一封 [风险识别] 邮件。
   extra_args: []                     # 透传给 claude 的额外参数, 如 ["--effort","high"]
 
 # ---------- 邮件发送 ----------

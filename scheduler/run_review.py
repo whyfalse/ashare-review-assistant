@@ -47,11 +47,14 @@ except ImportError:
 WEEKDAY_ALIASES = {"mon": 0, "tue": 1, "wed": 2, "thu": 3, "fri": 4, "sat": 5, "sun": 6}
 
 # 复盘技能 → 数据看板模板前缀
+# 注: ashare-risk-assessment 不是复盘技能, 但风险看板渲染复用 find_dashboard_html 的同日
+# 匹配逻辑, 故在此登记其看板文件名前缀(risk_assessment_dashboard_YYYY-MM-DD.html)。
 SKILL_TO_DASHBOARD_PREFIX = {
     "ashare-morning-brief": "morning_brief",
     "ashare-intraday-review": "intraday_review",
     "ashare-evening-review": "evening_review",
     "ashare-weekly-review": "weekly_review",
+    "ashare-risk-assessment": "risk_assessment",
 }
 
 # 复盘技能 → 落盘报告目录与文件名前缀(技能"输出保存"环节写盘的命名规则)
@@ -388,6 +391,91 @@ def resolve_report_body(skill: str, stdout_report: str, run_start_ts: float) -> 
     return stdout_report
 
 
+# ---------- 风险评估触发判定 ----------
+# 一票否决级红旗 + 重大异动/公告关键词。命中任一即触发风险评估。
+# 周复盘无条件触发(恢复"周度风险体检"语义), 不走关键词扫描。
+_RISK_RED_FLAGS = [
+    r"ST|\*ST",
+    r"立案调查",
+    r"行政处罚",
+    r"审计意见.*?(非标|保留意见|无法表示意见)",
+    r"股权冻结",
+    r"重大未决诉讼",
+    r"实体清单",
+    r"退市风险",
+    r"HFCAA|PCAOB",
+    r"反倾销|反补贴",
+    r"业绩变脸",
+    r"大额减持",
+    r"股权质押.*?平仓",
+]
+_RISK_RED_FLAGS_RE = [re.compile(p) for p in _RISK_RED_FLAGS]
+
+
+def should_run_risk(skill: str, report_md_text: str) -> list:
+    """判定本次复盘是否需要接力风险评估, 返回命中触发原因列表(空列表表示不触发)。
+
+    - 周复盘(ashare-weekly-review): 无条件触发, 返回 ["周复盘必跑"]。
+    - 其他复盘技能: 扫描报告正文, 命中任一红旗关键词即触发, 返回命中的关键词列表。
+    - 未命中: 返回空列表。
+
+    返回列表(而非 bool)是为了把命中关键词透传给风险 prompt, 让风险技能知道触发背景。
+    """
+    if skill == "ashare-weekly-review":
+        return ["周复盘必跑"]
+    if not report_md_text:
+        return []
+    hits = []
+    for p in _RISK_RED_FLAGS_RE:
+        m = p.search(report_md_text)
+        if m:
+            hits.append(m.group(0))
+    return hits
+
+
+# ---------- 风险报告落盘查找 ----------
+def find_risk_report_markdown(date_str: str, since_ts: Optional[float] = None) -> Optional[Path]:
+    """定位 output/ashare-risk-assessment/ 下本次运行落盘的风险报告 markdown。
+
+    风险报告文件名形如 `<代码>_risk_[日期].md` 或 `risk_<对象>_[日期].md`(见
+    ashare-risk-assessment SKILL.md"输出与回写"), 无统一前缀, 故按"*_<date>.md"匹配,
+    再按 mtime >= since_ts 过滤本次运行期间落盘的(避免误用上一轮旧报告)。
+
+    Args:
+        date_str: 运行当天日期字符串 YYYY-MM-DD
+        since_ts: 仅保留 mtime >= since_ts 的文件; None 则不限时间, 取最新一份
+    """
+    risk_dir = PROJECT_ROOT / "output" / "ashare-risk-assessment"
+    if not risk_dir.is_dir():
+        return None
+    matches = []
+    for f in risk_dir.glob(f"*_{date_str}.md"):
+        try:
+            mtime = f.stat().st_mtime
+        except OSError:
+            continue
+        if since_ts is not None and mtime < since_ts:
+            continue
+        matches.append((mtime, f))
+    matches.sort(key=lambda x: x[0], reverse=True)
+    return matches[0][1] if matches else None
+
+
+def resolve_risk_body(stdout_report: str, risk_md_path: Optional[Path]) -> str:
+    """决定风险邮件正文: 优先取落盘风险报告, stdout 兜底。仿 resolve_report_body。"""
+    if not risk_md_path:
+        return stdout_report
+    try:
+        saved = risk_md_path.read_text(encoding="utf-8").strip()
+    except OSError as e:
+        log(f"读取风险报告失败 {risk_md_path.name}: {e}")
+        return stdout_report
+    if len(saved) > len(stdout_report):
+        log(f"使用落盘风险报告作为邮件正文: {risk_md_path.name} ({len(saved)} 字符, stdout 仅 {len(stdout_report)} 字符)")
+        return saved
+    return stdout_report
+
+
 # ---------- 数据看板兜底生成 ----------
 def ensure_dashboard(skill: str, cfg: dict, run_start_ts: float) -> Optional[Path]:
     """渲染本次复盘的数据看板 HTML。
@@ -454,6 +542,135 @@ def ensure_dashboard(skill: str, cfg: dict, run_start_ts: float) -> Optional[Pat
     return find_dashboard_html(skill, report_path=report_path, since_ts=run_start_ts)
 
 
+# ---------- 风险评估独立调用(scheduler 侧触发, 不走 orchestrator 内接力) ----------
+# 风险 prompt 的通用约束: 复用 _DEFAULT_SKILL_PROMPT 的"同步前台/落盘/无过渡话术/完整执行"
+# 纪律, 但把"执行 X 复盘技能"换成"做风险排查", 并按触发场景注入对象与上下文。
+# 走 review-orchestrator 路由(命中"用户点名风险排查/体检 → ashare-risk-assessment"),
+# 享受数据源预检, 但不触发复盘/宏观/看板接力(那些只在调了 evening/morning/weekly 后才接力)。
+_RISK_PROMPT_TEMPLATE = """请通过 review-orchestrator agent 执行风险排查，输出完整中文风险报告。
+
+触发背景：{trigger_desc}
+
+本 prompt 由定时调度器无头调用，无人工交互，以下要求务必遵守：
+1. 必须以同步前台方式调用 review-orchestrator agent（等待 agent 完整返回后再继续），不得以后台方式启动后提前结束本轮。你的最终输出会被直接当作邮件正文，因此禁止只回复"已启动代理/正在执行/请稍候/完成后会通知"之类的过渡话术——那不是报告，会发出一封内容只有过渡话术的废邮件。
+2. agent 返回后，把完整中文风险报告正文原样作为最终答复输出；若风险技能已把报告落盘，请回读落盘文件全文输出，不要只给摘要或文件路径。
+3. 报告必须落盘到 output/ashare-risk-assessment/ 目录（bypassPermissions 模式下 Write 工具免确认，不得以"权限受限/无法保存"为由跳过落盘）。文件名按风险技能 SKILL.md 规则：个股 `<标准代码>_risk_[日期].md`，大盘/板块/组合 `risk_<对象简述>_[日期].md`，日期取运行当天。
+4. 必须完整执行风险技能六层框架（L1-L6，按对象裁剪），不得因耗时/上下文/取数困难而偷工减料或降级为简略摘要。红旗信号（L5.5）命中即总体标高，不得被其他维度平均掉。
+5. 风险技能是 data/risk_flags.json 的唯一写入者，落盘后按 SKILL.md"输出与回写"规则回写红旗跟踪表，不要把非红旗内容塞进该文件。"""
+
+
+def run_risk_assessment(cfg: dict, run_start_ts: float, date_str: str,
+                        trigger_context: tuple) -> str:
+    """独立调用 claude 执行风险评估, 返回 stdout 文本; 失败抛 RuntimeError。
+
+    与 run_skill 平行: 走 review-orchestrator 路由到 ashare-risk-assessment, 享受数据源
+    预检, 但不触发复盘/宏观/看板接力。落盘判据改为查 output/ashare-risk-assessment/*_<date>.md。
+
+    Args:
+        date_str: 运行当天 YYYY-MM-DD, 用于落盘判据
+        trigger_context: (skill, review_md_path, triggers) 三元组
+            - skill: 触发本次风险评估的复盘技能名(用于 prompt 描述触发背景)
+            - review_md_path: 复盘报告路径(事件驱动时供风险技能读取定位标的); 周复盘可为 None
+            - triggers: should_run_risk 返回的命中原因列表
+    """
+    skill, review_md_path, triggers = trigger_context
+
+    # 按触发场景构造 trigger_desc
+    if skill == "ashare-weekly-review":
+        trigger_desc = (
+            "周复盘配套风险体检。请对当前持仓组合与自选股做周度风险排查，覆盖组合层面 L6"
+            "（行业集中度/相关性）以及本周有变化的个股 L5；读取 data/positions.json 与 "
+            "data/watchlist.json 作为输入，由风险技能步骤0自选层级深度。"
+        )
+    else:
+        review_ref = str(review_md_path) if review_md_path else "（复盘报告未落盘，仅凭关键词触发）"
+        trigger_desc = (
+            f"复盘技能 {skill} 的报告中发现风险信号（命中: {triggers}）。"
+            f"复盘报告路径: {review_ref}。请读取该报告，自行判定需要对哪些标的做风险排查，"
+            f"并完成风险评估。红旗苗头通常聚焦 L5.5 + 相关子块，无需全量 L1-L6。"
+        )
+
+    prompt = _RISK_PROMPT_TEMPLATE.format(trigger_desc=trigger_desc)
+
+    ccfg = cfg.get("claude", {}) or {}
+    # 风险评估是重型分析, 给与复盘同等或更长超时; 缺省回退到 timeout_seconds
+    timeout = int(ccfg.get("risk_timeout_seconds") or ccfg.get("timeout_seconds", 1800))
+    max_attempts = max(1, int(ccfg.get("max_attempts", 3)))
+    last_out = ""
+    for attempt in range(1, max_attempts + 1):
+        out = _run_claude(prompt, ccfg, timeout,
+                          f"调用 claude 执行风险评估 (第{attempt}/{max_attempts}次)")
+        last_out = out
+        log(f"风险评估执行完成 (第{attempt}/{max_attempts}次), stdout 长度 {len(out)} 字符")
+        # 落盘判据: output/ashare-risk-assessment/*_<date>.md 在本次运行期间落盘
+        if find_risk_report_markdown(date_str, since_ts=run_start_ts):
+            return out
+        if len(out) >= 2000:
+            log(f"未落盘风险报告但 stdout 达 {len(out)} 字符, 视为完整报告(仅未落盘), 接受。")
+            return out
+        if attempt < max_attempts:
+            log(f"未落盘风险报告且 stdout 仅 {len(out)} 字符(疑似假完成), 将重试")
+            continue
+    log(f"已达最大重试次数 {max_attempts} 仍未落盘风险报告, 返回最后一次输出交主流程判定。")
+    return last_out
+
+
+# ---------- 风险看板渲染 ----------
+def ensure_risk_dashboard(risk_report_path: Optional[Path], cfg: dict,
+                          run_start_ts: float, date_str: str) -> Optional[Path]:
+    """渲染本次风险评估的数据看板 HTML。
+
+    与 ensure_dashboard 平行(风险报告无固定文件名前缀, 发现逻辑不同, 故单独函数)。
+    风险看板模板 risk_assessment.md 已存在于 templates/ 目录, 直接复用 ashare-dashboard
+    技能渲染。失败不抛错, 由调用方退回纯文本风险邮件。
+
+    Args:
+        risk_report_path: 本次落盘的风险报告路径; None 时无法渲染, 直接返回 None
+        date_str: 运行当天 YYYY-MM-DD, 用于同日看板匹配兜底
+    """
+    if not risk_report_path:
+        log("未找到落盘风险报告, 无法生成风险看板")
+        return None
+
+    # 首轮短路: 若本次运行已新生成风险看板, 直接用
+    existing = find_dashboard_html("ashare-risk-assessment",
+                                   report_path=risk_report_path,
+                                   since_ts=run_start_ts, require_fresh=True)
+    if existing:
+        return existing
+
+    ccfg = cfg.get("claude", {}) or {}
+    timeout = int(ccfg.get("dashboard_timeout_seconds", 600))
+    template_dir = str(PROJECT_ROOT / ".claude" / "skills" / "ashare-dashboard" / "templates")
+    prompt = (
+        f"请读取风险报告文件 {risk_report_path} 的完整内容作为数据源，调用 ashare-dashboard 技能，"
+        f"将其渲染为移动端数据看板 HTML 单文件，保存到 output/ashare-dashboard/ 目录。"
+        f"文件名按 ashare-dashboard 技能规则派生：risk_assessment_dashboard_{date_str}.html"
+        f"（规格文件名主干 risk_assessment + _dashboard_ + 日期）。"
+        f"规格目录位于 {template_dir}，其中 risk_assessment.md 为风险体检看板规格文档，"
+        f"请按其描述的架构/模块/样式生成 HTML（红旗命中顶部警示横幅 + HERO 总体风险等级 + "
+        f"红旗信号清单 + 六层风险速览热力条 + 系统性/非系统性 + 组合集中度 + 分层详细 + 数据来源）。"
+        f"若 output/ashare-dashboard/ 下已存在同日的同名看板文件，必须重新写入覆盖"
+        f"（不要复用旧文件、不要因已存在就跳过写盘），确保看板内容严格基于本次风险报告。"
+        f"只做展示层渲染：不重新取数、不做新分析、不编造报告里没有的内容，"
+        f"数据缺失按规格文档规则占位。"
+        f"必须实际调用 Write 工具把 HTML 写入磁盘，写盘后回读该文件确认存在且非空；"
+        f"不得只在回复里描述“已生成/文件路径/大小”而实际未写盘——未真正落盘的看板等同于未生成。"
+    )
+    log(f"风险评估已完成, 启动风险看板渲染调用 (超时 {timeout}s)")
+    try:
+        out = _run_claude(prompt, ccfg, timeout, "风险看板渲染调用")
+        preview = out[:500]
+        if len(out) > 500:
+            preview += f"...(共 {len(out)} 字符)"
+        log(f"风险看板渲染调用输出: {preview}")
+    except RuntimeError as e:
+        log(f"风险看板渲染调用失败: {e}")
+        return None
+    return find_dashboard_html("ashare-risk-assessment",
+                               report_path=risk_report_path, since_ts=run_start_ts)
+
+
 # ---------- 风险报告追加(看板邮件用) ----------
 def render_risk_appendix_html(date_str: str) -> str:
     """读取当天 output/ashare-risk-assessment/ 下的风险报告, 渲染为可追加到看板邮件正文末尾的 HTML 片段。
@@ -496,6 +713,67 @@ def render_risk_appendix_html(date_str: str) -> str:
         )
     parts.append('</section>')
     return "".join(parts)
+
+
+# ---------- 风险链路编排(复盘邮件发出后) ----------
+def _maybe_run_risk(skill: str, review_report_text: str, cfg: dict, ecfg: dict,
+                    prefix: str, date_str: str, run_start_ts: float,
+                    dashboard_enabled: bool) -> None:
+    """复盘邮件发出后, 条件触发风险评估并发第二封邮件。
+
+    触发判定见 should_run_risk: 周复盘必跑, 其他复盘技能扫描红旗关键词。
+    风险链路任何失败都只记日志, 不抛错——复盘邮件已交付, 风险是附加项, 失败不刷屏告警。
+
+    流程:
+      1. should_run_risk 判定, 未触发则跳过
+      2. run_risk_assessment 独立 claude 调用(走 review-orchestrator 路由)
+      3. find_risk_report_markdown 定位落盘风险报告, resolve_risk_body 决定正文
+      4. ensure_risk_dashboard 渲染风险看板(dashboard_enabled 时)
+      5. send_email 发第二封邮件(标题加 [风险识别] 前缀)
+    """
+    triggers = should_run_risk(skill, review_report_text)
+    if not triggers:
+        log("未触发风险评估, 跳过风险邮件")
+        return
+    log(f"触发风险评估: {triggers}")
+    review_md_path = find_report_markdown(skill, since_ts=run_start_ts)
+    try:
+        risk_stdout = run_risk_assessment(
+            cfg, run_start_ts, date_str,
+            trigger_context=(skill, review_md_path, triggers),
+        )
+    except Exception as e:
+        log(f"风险评估调用失败, 跳过风险邮件(复盘邮件已发): {e}")
+        return
+    risk_md_path = find_risk_report_markdown(date_str, since_ts=run_start_ts)
+    if not risk_md_path and len(risk_stdout) < 2000:
+        log(f"风险评估疑似假完成: 未落盘报告且 stdout 仅 {len(risk_stdout)} 字符, 跳过风险邮件。")
+        return
+    risk_body = resolve_risk_body(risk_stdout, risk_md_path)
+    risk_subject = f"{prefix}[风险识别] {skill} {date_str}"
+    if dashboard_enabled:
+        risk_html_path = ensure_risk_dashboard(risk_md_path, cfg, run_start_ts, date_str)
+        if risk_html_path:
+            try:
+                risk_html = risk_html_path.read_text(encoding="utf-8")
+                send_email(ecfg, risk_subject, risk_html, log, body_type="html")
+            except Exception as e:
+                log(f"风险看板邮件发送失败, 退回纯文本风险邮件: {e}")
+                try:
+                    send_email(ecfg, risk_subject, risk_body, log)
+                except Exception as e2:
+                    log(f"纯文本风险邮件也发送失败: {e2}")
+        else:
+            log("风险看板 HTML 未找到, 退回纯文本风险邮件(发送落盘风险报告全文)")
+            try:
+                send_email(ecfg, risk_subject, risk_body, log)
+            except Exception as e:
+                log(f"纯文本风险邮件发送失败: {e}")
+    else:
+        try:
+            send_email(ecfg, risk_subject, risk_body, log)
+        except Exception as e:
+            log(f"纯文本风险邮件发送失败: {e}")
 
 
 # ---------- 日志落盘与清理 ----------
@@ -582,9 +860,6 @@ def main():
             if dashboard_enabled:
                 html_path = ensure_dashboard(skill, cfg, run_start_ts)
                 if html_path:
-                    # 暂时不追加风险识别附录：编排层风险接力拉长链路导致无头模式下看板
-                    # 经常未生成最终版就被发出。先只发复盘看板，流程跑通后再恢复
-                    # 风险附录（render_risk_appendix_html 函数保留待用）。
                     html_body = html_path.read_text(encoding="utf-8")
                     send_email(ecfg, f"{prefix} {skill} {date_str}", html_body, log, body_type="html")
                 else:
@@ -592,6 +867,10 @@ def main():
                     send_email(ecfg, f"{prefix} {skill} {date_str}", report, log)
             else:
                 send_email(ecfg, f"{prefix} {skill} {date_str}", report, log)
+            # 复盘邮件已发出。风险评估作为附加项, 在复盘邮件之后独立触发、单独发第二封邮件。
+            # 风险链路任何失败都只记日志——复盘邮件已交付, 不因风险附加项失败而发告警邮件刷屏。
+            _maybe_run_risk(skill, report, cfg, ecfg, prefix, date_str,
+                            run_start_ts, dashboard_enabled)
         flush_log(cfg, skill)
         return 0
     except Exception as e:
